@@ -108,3 +108,28 @@ describe('lectura de precios', () => {
     expect(parseCop('')).toBe(null);
   });
 });
+
+import { estimateTotals, nextNumber } from '../src/lib/estimate';
+
+describe('cotizador', () => {
+  const items = [
+    { id: 'a', name: 'A', desc: '', kind: 'Producto' as const, qty: 2, price: 10000 },
+    { id: 'b', name: 'B', desc: '', kind: 'Servicio' as const, qty: 1, price: 30000 },
+  ];
+  it('suma líneas, descuento e IVA', () => {
+    const t = estimateTotals(items, 10, 19);
+    expect(t.subtotal).toBe(50000);
+    expect(t.discount).toBe(5000);
+    expect(t.base).toBe(45000);
+    expect(t.iva).toBeCloseTo(8550);
+    expect(t.total).toBeCloseTo(53550);
+  });
+  it('ignora descuentos fuera de rango', () => {
+    expect(estimateTotals(items, 150, 0).total).toBe(0);
+    expect(estimateTotals(items, -5, 0).total).toBe(50000);
+  });
+  it('genera el siguiente consecutivo', () => {
+    expect(nextNumber([])).toBe('COT-0001');
+    expect(nextNumber(['COT-0003', 'COT-0009', ''])).toBe('COT-0010');
+  });
+});

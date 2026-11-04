@@ -171,3 +171,35 @@ CREATE TABLE IF NOT EXISTS identities (
   UNIQUE (provider, provider_user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_identities_user ON identities(user_id);
+
+-- ---------- Cotizador ----------
+CREATE TABLE IF NOT EXISTS customers (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  doc        TEXT NOT NULL DEFAULT '',
+  email      TEXT NOT NULL DEFAULT '',
+  phone      TEXT NOT NULL DEFAULT '',
+  address    TEXT NOT NULL DEFAULT '',
+  notes      TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS estimates (
+  id           SERIAL PRIMARY KEY,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  customer_id  INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  number       TEXT NOT NULL DEFAULT '',
+  title        TEXT NOT NULL DEFAULT '',
+  status       TEXT NOT NULL DEFAULT 'Borrador',
+  issue_date   DATE NOT NULL DEFAULT CURRENT_DATE,
+  valid_days   NUMERIC NOT NULL DEFAULT 15,
+  items        JSONB NOT NULL DEFAULT '[]',
+  discount_pct NUMERIC NOT NULL DEFAULT 0,
+  iva_pct      NUMERIC NOT NULL DEFAULT 0,
+  notes        TEXT NOT NULL DEFAULT '',
+  total        NUMERIC NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_customers_user ON customers(user_id);
+CREATE INDEX IF NOT EXISTS idx_estimates_user ON estimates(user_id);

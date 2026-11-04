@@ -10,6 +10,10 @@ contabilidad – Colombia 2026*.
   *indispensables* siempre se suman y los demás se eligen), % de ganancia con botones o barra
   (sobre el precio o sobre el costo), comisión, IVA y redondeo. Muestra precio final, ganancia,
   margen real y punto de equilibrio. Los cálculos se pueden guardar.
+- **Cotizador**: crea cotizaciones con clientes, líneas de productos y servicios (desde tus cálculos guardados o en
+  blanco), descuento, IVA, notas, estado e impresión/PDF. Todo queda en tu cuenta para editar, duplicar o eliminar.
+  Desde la calculadora hay un botón «Pasar al cotizador» y desde la cotización un enlace «Ver en calculadora».
+  La calculadora también guarda líneas como insumos y gastos extra como gastos fijos para reutilizarlos.
 - **Buscador de proveedores**: busca precios (Google Shopping Colombia) o mayoristas, y guarda el
   resultado como insumo nuevo o como cotización en el comparador. Sin clave de búsqueda, muestra
   enlaces directos a Mercado Libre, Google Shopping, Falabella y Alibaba.
