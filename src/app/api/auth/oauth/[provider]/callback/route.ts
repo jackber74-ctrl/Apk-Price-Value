@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { OAUTH_COOKIE, OAUTH_COOKIE_PATH, PROVIDERS, baseUrl, callbackUrl, isProvider, verifyState } from '@/lib/oauth';
+import { ProviderError, OAUTH_COOKIE, OAUTH_COOKIE_PATH, PROVIDERS, baseUrl, callbackUrl, isProvider, verifyState } from '@/lib/oauth';
 import { resolveUser } from '@/lib/oauth-users';
 import { COOKIE, cookieOptions, signSession } from '@/lib/session';
 
@@ -15,8 +15,8 @@ function cookieValue(req: Request, name: string) {
 export async function GET(req: Request, ctx: { params: Promise<{ provider: string }> }) {
   const { provider } = await ctx.params;
   const url = new URL(req.url);
-  const back = (code: string) => {
-    const res = NextResponse.redirect(new URL(`/login?error=${code}`, baseUrl(req)));
+  const back = (code: string, why?: string) => {
+    const res = NextResponse.redirect(new URL(`/login?error=${code}${why ? `&why=${encodeURIComponent(why)}` : ''}`, baseUrl(req)));
     res.cookies.set(OAUTH_COOKIE, '', { path: OAUTH_COOKIE_PATH, maxAge: 0 });
     return res;
   };
@@ -40,6 +40,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ provider: strin
     return res;
   } catch (e) {
     console.error('[oauth]', provider, (e as Error).message);
-    return back('failed');
+    return back('failed', e instanceof ProviderError ? e.code : 'servidor');
   }
 }
