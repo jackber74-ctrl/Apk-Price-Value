@@ -1,10 +1,11 @@
 'use client';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CrudTable from '@/components/CrudTable';
-import { create, list, remove, update } from '@/lib/client';
+import { api, create, list, remove, update } from '@/lib/client';
 import { money } from '@/lib/format';
+import EstimateDoc, { type DocProfile } from '@/components/EstimateDoc';
 import { STATUSES, estimateTotals, nextNumber, type EstimateItem } from '@/lib/estimate';
 
 type Customer = { id: number; name: string; doc: string; email: string; phone: string; address: string; notes: string };
@@ -32,6 +33,7 @@ function Cotizador() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState('');
+  const [profile, setProfile] = useState<DocProfile | null>(null);
   const [newCustomer, setNewCustomer] = useState<string | null>(null);
 
   const newDraft = useCallback(
@@ -43,8 +45,9 @@ function Cotizador() {
   );
 
   useEffect(() => {
-    Promise.all([list<Estimate>('estimates'), list<Customer>('customers'), list<Calc>('quotes')])
-      .then(([e, c, q]) => {
+    Promise.all([list<Estimate>('estimates'), list<Customer>('customers'), list<Calc>('quotes'), api<{ profile: DocProfile }>('/api/account/profile').catch(() => null)])
+      .then(([e, c, q, pr]) => {
+        setProfile(pr?.profile ?? null);
         setEstimates(e);
         setCustomers(c);
         setCalcs(q);
@@ -136,7 +139,7 @@ function Cotizador() {
         </div>
         {msg && <div className="alert no-print">{msg}</div>}
 
-        <section className="card">
+        <section className="card no-print">
           <h2>Datos</h2>
           <div className="row">
             <div className="field">
@@ -187,7 +190,7 @@ function Cotizador() {
           )}
         </section>
 
-        <section className="card">
+        <section className="card no-print">
           <h2>Productos y servicios</h2>
           <div className="table-wrap">
             <table>
@@ -196,10 +199,10 @@ function Cotizador() {
               </thead>
               <tbody>
                 {draft.items.map((i) => (
-                  <tr key={i.id}>
+                  <Fragment key={i.id}>
+                  <tr>
                     <td>
                       <input aria-label="Concepto" value={i.name} placeholder="Concepto" onChange={(e) => setItem(i.id, { name: e.target.value })} />
-                      <input aria-label="Descripción" value={i.desc} placeholder="Descripción (opcional)" onChange={(e) => setItem(i.id, { desc: e.target.value })} style={{ marginTop: 4 }} />
                     </td>
                     <td>
                       <select aria-label="Tipo" value={i.kind} onChange={(e) => setItem(i.id, { kind: e.target.value as EstimateItem['kind'] })}>
@@ -216,6 +219,12 @@ function Cotizador() {
                       <button type="button" className="danger" aria-label="Quitar línea" onClick={() => patch({ items: draft.items.filter((x) => x.id !== i.id) })}>✕</button>
                     </td>
                   </tr>
+                  <tr>
+                    <td colSpan={6} style={{ paddingTop: 0 }}>
+                      <input aria-label="Observación de la línea" value={i.desc} placeholder="Observación de esta línea (opcional, sale debajo del concepto)" onChange={(e) => setItem(i.id, { desc: e.target.value })} />
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))}
                 {draft.items.length === 0 && <tr><td colSpan={6} className="muted">Aún no hay líneas.</td></tr>}
               </tbody>
@@ -231,7 +240,7 @@ function Cotizador() {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card no-print">
           <div className="row">
             <div className="field">
               <label htmlFor="disc">Descuento (%)</label>
@@ -248,10 +257,13 @@ function Cotizador() {
           {totals.iva > 0 && <div className="kv"><span>IVA</span><strong>{money(totals.iva)}</strong></div>}
           <div className="kv"><span>Total</span><strong className="result-big" style={{ fontSize: '1.5rem' }}>{money(totals.total)}</strong></div>
           <div className="field" style={{ marginTop: 12 }}>
-            <label htmlFor="notes">Notas y condiciones</label>
+            <label htmlFor="notes">Observaciones (salen al final de la cotización)</label>
             <textarea id="notes" rows={3} value={draft.notes} onChange={(e) => patch({ notes: e.target.value })} placeholder="Forma de pago, tiempo de entrega…" />
           </div>
         </section>
+
+        <EstimateDoc profile={profile} doc={draft} customer={customer} totals={totals} />
+        <p className="muted small no-print">Así le llega a tu cliente. El logo y los colores se cambian en <Link href="/app/cuenta">Mi cuenta</Link>.</p>
 
         <div className="row no-print">
           <button type="button" onClick={save}>{draft.id ? 'Guardar cambios' : 'Guardar cotización'}</button>

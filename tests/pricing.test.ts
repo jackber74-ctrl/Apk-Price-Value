@@ -133,3 +133,26 @@ describe('cotizador', () => {
     expect(nextNumber(['COT-0003', 'COT-0009', ''])).toBe('COT-0010');
   });
 });
+
+import { dominantColor, isLogo, readableOn, tint } from '../src/lib/brand';
+
+describe('marca', () => {
+  const px = (r: number, g: number, b: number, a = 255, n = 10) => Array.from({ length: n }, () => [r, g, b, a]).flat();
+  it('toma el color con más presencia e ignora blanco, gris y transparente', () => {
+    const data = [...px(255, 255, 255, 255, 500), ...px(120, 120, 120, 255, 300), ...px(200, 30, 30, 0, 300), ...px(30, 60, 200, 255, 20), ...px(220, 40, 40, 255, 5)];
+    expect(dominantColor(data)).toBe('#1e3cc8');
+  });
+  it('si no hay color devuelve el de la app', () => {
+    expect(dominantColor(px(255, 255, 255, 255, 50))).toBe('#0f766e');
+  });
+  it('elige texto legible y aclara colores', () => {
+    expect(readableOn('#111111')).toBe('#ffffff');
+    expect(readableOn('#fde047')).toBe('#111827');
+    expect(tint('#000000', 0.9)).toBe('#e6e6e6');
+  });
+  it('solo acepta imágenes en data URL', () => {
+    expect(isLogo('data:image/png;base64,AAAA')).toBe(true);
+    expect(isLogo('data:image/svg+xml;base64,AAAA')).toBe(false);
+    expect(isLogo('https://x.co/a.png')).toBe(false);
+  });
+});
