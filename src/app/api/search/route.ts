@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser, jsonError } from '@/lib/auth';
+import { requireFeature } from '@/lib/plan-server';
 import { parseCop } from '@/lib/format';
 import { directLinks, type SearchResult } from '@/lib/search';
 
@@ -10,6 +11,8 @@ import { directLinks, type SearchResult } from '@/lib/search';
 export async function GET(req: Request) {
   const uid = await requireUser();
   if (uid instanceof NextResponse) return uid;
+  const denied = await requireFeature(uid, 'search');
+  if (denied) return denied;
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
   const mode = url.searchParams.get('mode') === 'proveedores' ? 'proveedores' : 'productos';

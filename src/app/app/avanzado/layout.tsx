@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import PlanGate from '@/components/PlanGate';
 
 const TABS = [
   { href: '/app/avanzado', label: 'Productos y precios' },
@@ -21,7 +22,7 @@ export default function AdvancedLayout({ children }: { children: React.ReactNode
           <Link key={t.href} href={t.href} className={path === t.href ? 'active' : ''}>{t.label}</Link>
         ))}
       </nav>
-      {children}
+      <PlanGate feature="advanced" title="Modo avanzado">{children}</PlanGate>
     </>
   );
 }

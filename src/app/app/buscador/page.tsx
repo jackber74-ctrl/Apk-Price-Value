@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import PlanGate from '@/components/PlanGate';
 import { api, create, list } from '@/lib/client';
 import { money } from '@/lib/format';
 import type { SearchResult } from '@/lib/search';
@@ -8,7 +9,7 @@ type Supply = { id: number; name: string; unit: string; qty: number };
 type Supplier = { id: number; name: string };
 type Resp = { results: SearchResult[]; links: { name: string; url: string }[]; configured: boolean; error?: string };
 
-export default function Buscador() {
+function Buscador() {
   const [q, setQ] = useState('');
   const [mode, setMode] = useState<'productos' | 'proveedores'>('productos');
   const [resp, setResp] = useState<Resp | null>(null);
@@ -141,5 +142,13 @@ export default function Buscador() {
         </>
       )}
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <PlanGate feature="search" title="Buscador de proveedores">
+      <Buscador />
+    </PlanGate>
   );
 }

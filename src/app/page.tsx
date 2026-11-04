@@ -15,6 +15,7 @@ export default async function Home() {
       <div className="actions">
         <Link className="btn" href="/registro">Crear cuenta gratis</Link>
         <Link className="btn ghost" href="/login">Ya tengo cuenta</Link>
+        <Link className="btn ghost" href="/planes">Ver planes</Link>
         <Link className="btn ghost" href="/descargar">Descargar la app</Link>
       </div>
       <div className="features">

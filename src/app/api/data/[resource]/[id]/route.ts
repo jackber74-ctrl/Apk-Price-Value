@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { requireUser, jsonError } from '@/lib/auth';
 import { RESOURCES, cleanRow } from '@/lib/resources';
 import { checkRefs } from '@/lib/refs';
+import { requireFeature } from '@/lib/plan-server';
 
 type Ctx = { params: Promise<{ resource: string; id: string }> };
 
@@ -13,6 +14,8 @@ export async function PUT(req: Request, ctx: Ctx) {
   const res = RESOURCES[p.resource];
   const id = parseInt(p.id, 10);
   if (!res || !Number.isFinite(id)) return jsonError('Recurso no válido.', 404);
+  const denied = await requireFeature(uid, res.feature);
+  if (denied) return denied;
   let row: Record<string, unknown>;
   try {
     row = cleanRow(res, await req.json(), true);
@@ -39,6 +42,8 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   const res = RESOURCES[p.resource];
   const id = parseInt(p.id, 10);
   if (!res || !Number.isFinite(id)) return jsonError('Recurso no válido.', 404);
+  const denied = await requireFeature(uid, res.feature);
+  if (denied) return denied;
   await query(`DELETE FROM ${res.table} WHERE id = $1 AND user_id = $2`, [id, uid]);
   return NextResponse.json({ ok: true });
 }

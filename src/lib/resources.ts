@@ -1,6 +1,8 @@
 // Lista blanca de tablas y columnas que la API genérica puede leer y escribir.
 // Cada fila siempre pertenece al usuario que inició sesión (user_id).
 
+import type { Feature } from './plans';
+
 type ColType = 'text' | 'num' | 'numNull' | 'bool' | 'date' | 'ref' | 'json';
 
 export type Resource = {
@@ -9,17 +11,21 @@ export type Resource = {
   required: string[];
   refs?: Record<string, string>; // columna -> tabla a la que apunta
   order: string;
+  /** Plan mínimo que necesita para leer y escribir este recurso. */
+  feature?: Feature;
 };
 
 export const RESOURCES: Record<string, Resource> = {
   suppliers: {
     table: 'suppliers',
+    feature: 'advanced',
     cols: { name: 'text', url: 'text', phone: 'text', city: 'text', notes: 'text' },
     required: ['name'],
     order: 'name',
   },
   supplies: {
     table: 'supplies',
+    feature: 'save',
     cols: {
       name: 'text', category: 'text', supplier_id: 'ref', presentation: 'text', qty: 'num', unit: 'text',
       price: 'num', iva_pct: 'num', waste_pct: 'num', url: 'text', price_date: 'date',
@@ -30,6 +36,7 @@ export const RESOURCES: Record<string, Resource> = {
   },
   supply_quotes: {
     table: 'supply_quotes',
+    feature: 'search',
     cols: { supply_id: 'ref', supplier: 'text', price: 'num', qty: 'num', url: 'text', quote_date: 'date' },
     required: ['supply_id'],
     refs: { supply_id: 'supplies' },
@@ -37,18 +44,21 @@ export const RESOURCES: Record<string, Resource> = {
   },
   fixed_costs: {
     table: 'fixed_costs',
+    feature: 'save',
     cols: { name: 'text', category: 'text', amount: 'num', frequency: 'text', mandatory: 'bool' },
     required: ['name'],
     order: 'mandatory DESC, name',
   },
   workers: {
     table: 'workers',
+    feature: 'advanced',
     cols: { name: 'text', contract: 'text', direct: 'bool', salary: 'num', arl_class: 'text', hours: 'numNull' },
     required: ['name'],
     order: 'name',
   },
   equipment: {
     table: 'equipment',
+    feature: 'advanced',
     cols: {
       name: 'text', cost: 'num', life_years: 'num', residual: 'num', maint_year: 'num', charge: 'text', hours_month: 'num',
     },
@@ -57,6 +67,7 @@ export const RESOURCES: Record<string, Resource> = {
   },
   products: {
     table: 'products',
+    feature: 'advanced',
     cols: {
       name: 'text', kind: 'text', category: 'text', units_month: 'num', other_var_cost: 'num', margin: 'numNull',
       commission: 'numNull', iva_pct: 'numNull', current_price: 'numNull', competitor_price: 'numNull',
@@ -66,6 +77,7 @@ export const RESOURCES: Record<string, Resource> = {
   },
   recipe_items: {
     table: 'recipe_items',
+    feature: 'advanced',
     cols: { product_id: 'ref', supply_id: 'ref', qty: 'num' },
     required: ['product_id', 'supply_id'],
     refs: { product_id: 'products', supply_id: 'supplies' },
@@ -73,6 +85,7 @@ export const RESOURCES: Record<string, Resource> = {
   },
   process_steps: {
     table: 'process_steps',
+    feature: 'advanced',
     cols: { product_id: 'ref', step: 'text', worker_id: 'ref', minutes: 'num', equipment_id: 'ref', equip_minutes: 'num' },
     required: ['product_id'],
     refs: { product_id: 'products', worker_id: 'workers', equipment_id: 'equipment' },
@@ -80,18 +93,21 @@ export const RESOURCES: Record<string, Resource> = {
   },
   quotes: {
     table: 'quotes',
+    feature: 'save',
     cols: { name: 'text', data: 'json', price: 'num' },
     required: ['name', 'data'],
     order: 'created_at DESC',
   },
   customers: {
     table: 'customers',
+    feature: 'save',
     cols: { name: 'text', doc: 'text', email: 'text', phone: 'text', address: 'text', notes: 'text' },
     required: ['name'],
     order: 'name',
   },
   estimates: {
     table: 'estimates',
+    feature: 'save',
     cols: {
       customer_id: 'ref', number: 'text', title: 'text', status: 'text', issue_date: 'date', valid_days: 'num',
       items: 'json', discount_pct: 'num', iva_pct: 'num', notes: 'text', total: 'num',
