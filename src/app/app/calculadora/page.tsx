@@ -32,7 +32,7 @@ const num = (s: string) => {
   const x = parseFloat(String(s).replace(',', '.'));
   return Number.isFinite(x) ? x : 0;
 };
-const MARGINS = [10, 20, 25, 30, 40, 50, 60];
+const MARGINS = [10, 20, 25, 30, 40, 50, 60, 70];
 
 function initialState(s: Settings): CalcState {
   return {
