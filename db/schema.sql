@@ -225,3 +225,18 @@ BEGIN
     UPDATE users SET plan = 'max', plan_lifetime = true;
   END IF;
 END $$;
+
+-- ---------- Pagos (Mercado Pago) ----------
+-- payment_id único: así un aviso repetido del webhook no suma el plan dos veces.
+CREATE TABLE IF NOT EXISTS payments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL DEFAULT 'mercadopago',
+  payment_id TEXT NOT NULL UNIQUE,
+  plan TEXT NOT NULL,
+  period TEXT NOT NULL,
+  amount NUMERIC,
+  currency TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);

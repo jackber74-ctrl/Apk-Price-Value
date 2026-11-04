@@ -15,6 +15,10 @@ export default function Planes() {
   const [busy, setBusy] = useState('');
 
   useEffect(() => {
+    const pago = new URLSearchParams(window.location.search).get('pago');
+    if (pago === 'ok') setMsg('¡Gracias! Estamos confirmando tu pago; tu plan se activa en unos segundos. Si no cambia, recarga la página.');
+    else if (pago === 'pendiente') setMsg('Tu pago quedó pendiente. Cuando Mercado Pago lo confirme, tu plan se activa solo.');
+    else if (pago === 'error') setMsg('El pago no se completó. Puedes intentarlo de nuevo.');
     fetch('/api/plan', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then(setMe)
@@ -52,7 +56,7 @@ export default function Planes() {
           {me.expires ? `, vigente hasta el ${new Date(me.expires).toLocaleDateString('es-CO')}` : ''}.
         </div>
       )}
-      {msg && <div className="alert bad">{msg}</div>}
+      {msg && <div className={`alert ${msg.startsWith('¡Gracias') || msg.startsWith('Tu pago quedó') ? '' : 'bad'}`}>{msg}</div>}
 
       <div className="chips period-bar" role="tablist" aria-label="Periodo de pago">
         {PERIODS.map((p) => (

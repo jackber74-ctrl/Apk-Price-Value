@@ -49,7 +49,11 @@ avanzado). Cada plan incluye lo del anterior. Precios y ahorros en `src/lib/plan
 (`requireFeature`, respuesta 402) y en las pantallas (`PlanGate`).
 
 - Los usuarios que existían cuando se creó la columna `users.plan` quedaron con el plan máximo de por vida.
-- Los pagos todavía no están conectados: `/api/billing/checkout` responde 503 hasta elegir una pasarela.
+- Cobro con **Mercado Pago** (Checkout Pro). Sin `MP_ACCESS_TOKEN`, `/api/billing/checkout` responde 503.
+  1. En mercadopago.com.co/developers crea una aplicación y copia el *Access Token* de producción a `MP_ACCESS_TOKEN`.
+  2. En Webhooks de esa aplicación agrega `https://TU-DOMINIO/api/billing/webhook` con el evento **Pagos**, y copia su clave secreta a `MP_WEBHOOK_SECRET`.
+  3. Los precios están en USD; Mercado Pago Colombia cobra en pesos, así que se convierten con `MP_USD_RATE` (por defecto 4000) y `MP_CURRENCY=COP`.
+  4. El webhook consulta el pago a Mercado Pago, comprueba plan, periodo y monto, y activa el plan sin duplicar (tabla `payments`). Renovar el mismo plan suma el tiempo al vencimiento actual.
 - Para dar un plan a mano (pruebas o cobro fuera de la app):
   `UPDATE users SET plan='pro', plan_period='annual', plan_expires_at = now() + interval '1 year' WHERE email='correo@ejemplo.com';`
   (planes: `free`, `pro`, `plus`, `max`; de por vida: `plan_lifetime = true`).
