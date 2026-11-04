@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/app/calculadora', label: 'Calculadora' },
   { href: '/app/buscador', label: 'Buscar proveedores' },
   { href: '/app/avanzado', label: 'Avanzado' },
+  { href: '/app/cuenta', label: 'Mi cuenta' },
 ];
 
 export default function TopNav() {

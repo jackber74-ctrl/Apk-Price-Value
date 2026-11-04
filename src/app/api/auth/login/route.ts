@@ -8,11 +8,14 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const email = String(body.email ?? '').trim().toLowerCase();
   const password = String(body.password ?? '');
-  const [user] = await query<{ id: number; password_hash: string }>(
+  const [user] = await query<{ id: number; password_hash: string | null }>(
     'SELECT id, password_hash FROM users WHERE email = $1',
     [email],
   );
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+  if (user && !user.password_hash) {
+    return jsonError('Esta cuenta entra con Google, Facebook o TikTok. Usa ese botón para ingresar.', 401);
+  }
+  if (!user || !(await bcrypt.compare(password, user.password_hash as string))) {
     return jsonError('Correo o contraseña incorrectos.', 401);
   }
   const res = NextResponse.json({ ok: true });
