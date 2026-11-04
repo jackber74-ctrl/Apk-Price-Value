@@ -24,9 +24,20 @@ type ProviderDef = {
 
 const FB_VERSION = 'v23.0';
 
+/** Error del proveedor con su código corto (por ejemplo invalid_client o redirect_uri_mismatch). */
+export class ProviderError extends Error {
+  constructor(message: string, public code: string) {
+    super(message);
+  }
+}
+
 async function json(res: Response, what: string) {
   const data = await res.json().catch(() => null);
-  if (!res.ok || !data) throw new Error(`${what}: respuesta ${res.status}`);
+  if (!res.ok || !data) {
+    const raw = typeof data?.error === 'string' ? data.error : data?.error?.type ?? data?.error?.message ?? '';
+    const code = String(raw).toLowerCase().replace(/[^a-z0-9_]+/g, '_').slice(0, 40) || `http_${res.status}`;
+    throw new ProviderError(`${what}: respuesta ${res.status} (${code}) ${data?.error_description ?? ''}`.trim(), code);
+  }
   return data as Record<string, any>;
 }
 

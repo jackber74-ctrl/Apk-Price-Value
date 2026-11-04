@@ -57,3 +57,22 @@ describe('proveedores de inicio de sesión', () => {
     expect(await verifyState(null)).toBeNull();
   });
 });
+
+describe('errores del proveedor', () => {
+  it('conserva el código que devuelve Google para poder diagnosticar', async () => {
+    const { PROVIDERS, ProviderError } = await import('../src/lib/oauth');
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ error: 'redirect_uri_mismatch', error_description: 'Bad' }), { status: 400 })) as typeof fetch;
+    try {
+      await expect(
+        PROVIDERS.google.fetchProfile({ code: 'c', redirectUri: 'https://a.test/cb', creds: { id: 'i', secret: 's' } }),
+      ).rejects.toMatchObject({ code: 'redirect_uri_mismatch' });
+      await expect(
+        PROVIDERS.google.fetchProfile({ code: 'c', redirectUri: 'https://a.test/cb', creds: { id: 'i', secret: 's' } }),
+      ).rejects.toBeInstanceOf(ProviderError);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

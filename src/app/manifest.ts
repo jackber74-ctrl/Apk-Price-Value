@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: '/',
     name: 'Apk Price Value',
     short_name: 'Precios',
     description: 'Calcula el precio sugerido de tus productos y servicios, cotiza y busca proveedores.',

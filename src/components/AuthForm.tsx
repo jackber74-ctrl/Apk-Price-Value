@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 
-type Provider = { id: string; label: string };
+type Provider = { id: string; label: string; callback?: string };
 
 const ERRORS: Record<string, string> = {
   cancelled: 'Cancelaste el inicio de sesión. Puedes intentarlo de nuevo.',
@@ -21,11 +21,13 @@ export default function AuthForm({ mode }: { mode: 'login' | 'registro' }) {
   const [busy, setBusy] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [next, setNext] = useState('');
+  const [why, setWhy] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('error');
     if (code) setError(ERRORS[code] ?? ERRORS.failed);
+    setWhy(params.get('why') ?? '');
     const n = params.get('next');
     if (n && n.startsWith('/app')) setNext(n);
     api<{ providers: Provider[] }>('/api/auth/providers')
@@ -63,7 +65,15 @@ export default function AuthForm({ mode }: { mode: 'login' | 'registro' }) {
       <div className="card" style={{ marginTop: 16 }}>
         <h1>{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</h1>
         <p className="muted small">{mode === 'login' ? 'Entra con tu correo y contraseña.' : 'Tus datos quedan guardados en tu cuenta.'}</p>
-        {error && <div className="alert bad">{error}</div>}
+        {error && (
+          <div className="alert bad">
+            {error}
+            {why && <div className="small" style={{ marginTop: 6 }}>Detalle técnico: <code>{why}</code></div>}
+            {why && providers[0]?.callback && (
+              <div className="small" style={{ marginTop: 6 }}>Dirección de retorno que usa la app: <code>{providers[0].callback}</code></div>
+            )}
+          </div>
+        )}
 
         {providers.length > 0 && (
           <>

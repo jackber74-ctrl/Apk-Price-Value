@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { clearInstallEvent, getInstall, startInstallCapture, subscribeInstall } from './install-store';
 
-type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 export type Platform = 'android' | 'ios' | 'windows' | 'linux' | 'mac' | 'other';
 
 export function detectPlatform(ua: string): Platform {
@@ -13,32 +13,44 @@ export function detectPlatform(ua: string): Platform {
   return 'other';
 }
 
+/** Navegador que no instala webs como apps (Firefox de escritorio) o que corre dentro de otra app (Facebook, Instagram, TikTok…). */
+export function browserLimit(ua: string, platform: Platform): 'firefox' | 'inapp' | null {
+  if (/FBAN|FBAV|Instagram|TikTok|musical_ly|Line\/|; wv\)/i.test(ua)) return 'inapp';
+  if (/firefox/i.test(ua) && platform !== 'android') return 'firefox';
+  return null;
+}
+
 /** Estado de la instalación de la PWA: plataforma, si ya está instalada y el aviso nativo del navegador cuando existe. */
 export function useInstall() {
-  const [evt, setEvt] = useState<InstallEvent | null>(null);
   const [platform, setPlatform] = useState<Platform>('other');
+  const [limit, setLimit] = useState<'firefox' | 'inapp' | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
-    setPlatform(detectPlatform(navigator.userAgent));
+    startInstallCapture();
+    const ua = navigator.userAgent;
+    const plat = detectPlatform(ua);
+    setPlatform(plat);
+    setLimit(browserLimit(ua, plat));
     const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone;
-    if (standalone) setInstalled(true);
-    const onPrompt = (e: Event) => { e.preventDefault(); setEvt(e as InstallEvent); };
-    const onInstalled = () => { setInstalled(true); setEvt(null); };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
+    const sync = () => {
+      const s = getInstall();
+      setCanInstall(!!s.event);
+      setInstalled(!!standalone || s.installed);
     };
+    sync();
+    return subscribeInstall(sync);
   }, []);
 
   async function install() {
-    if (!evt) return;
-    await evt.prompt();
-    await evt.userChoice.catch(() => {});
-    setEvt(null);
+    const { event } = getInstall();
+    if (!event) return false;
+    await event.prompt();
+    const choice = await event.userChoice.catch(() => null);
+    clearInstallEvent();
+    return choice?.outcome === 'accepted';
   }
 
-  return { platform, installed, canInstall: !!evt, install };
+  return { platform, limit, installed, canInstall, install };
 }
