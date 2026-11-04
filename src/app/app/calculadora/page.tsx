@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { Upsell } from '@/components/PlanGate';
+import { usePlan } from '@/lib/use-plan';
 import { api, create, list, remove, update } from '@/lib/client';
 import { money, pct } from '@/lib/format';
 import { DEFAULT_SETTINGS, breakEvenUnits, diagnose, monthlyAmount, suggestedPrice, supplyUnitCost, type Settings } from '@/lib/pricing';
@@ -64,6 +66,8 @@ function initialState(s: Settings): CalcState {
 function Calculadora() {
   const router = useRouter();
   const params = useSearchParams();
+  const plan = usePlan();
+  const canSave = plan.can('save');
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [fixed, setFixed] = useState<FixedCost[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -74,7 +78,14 @@ function Calculadora() {
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    Promise.all([api<{ settings: Settings }>('/api/settings'), list<FixedCost>('fixed_costs'), list<Quote>('quotes'), list<Supply>('supplies')])
+    if (!plan.loaded) return;
+    // Free solo usa la calculadora: no se leen ni se guardan datos.
+    Promise.all([
+      api<{ settings: Settings }>('/api/settings'),
+      canSave ? list<FixedCost>('fixed_costs') : Promise.resolve([] as FixedCost[]),
+      canSave ? list<Quote>('quotes') : Promise.resolve([] as Quote[]),
+      canSave ? list<Supply>('supplies') : Promise.resolve([] as Supply[]),
+    ])
       .then(([s, f, q, sup]) => {
         setSupplies(sup);
         setSettings(s.settings);
@@ -91,7 +102,8 @@ function Calculadora() {
       })
       .catch((e) => setMsg(e.message))
       .finally(() => setLoaded(true));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.loaded, canSave]);
 
   const set = <K extends keyof CalcState>(k: K, v: CalcState[K]) => setSt((p) => ({ ...p, [k]: v }));
 
@@ -239,7 +251,7 @@ function Calculadora() {
                   onChange={(e) => set('lines', st.lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
                 <input aria-label="Valor" inputMode="decimal" value={l.amount} placeholder="$ por unidad"
                   onChange={(e) => set('lines', st.lines.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))} />
-                <button type="button" className="ghost shrink" title="Guardar como insumo para reutilizar" aria-label="Guardar como insumo" onClick={() => saveLineAsSupply(l)}>💾</button>
+                {canSave && <button type="button" className="ghost shrink" title="Guardar como insumo para reutilizar" aria-label="Guardar como insumo" onClick={() => saveLineAsSupply(l)}>💾</button>}
                 <button type="button" className="danger shrink" aria-label="Quitar" onClick={() => set('lines', st.lines.filter((_, j) => j !== i))}>✕</button>
               </div>
             ))}
@@ -252,7 +264,11 @@ function Calculadora() {
                 </select>
               )}
             </div>
-            <p className="muted small" style={{ margin: '6px 0 0' }}>Con 💾 guardas el concepto en tus insumos para usarlo otra vez.</p>
+            {canSave ? (
+              <p className="muted small" style={{ margin: '6px 0 0' }}>Con 💾 guardas el concepto en tus insumos para usarlo otra vez.</p>
+            ) : (
+              <Upsell feature="save">Guarda tus insumos para usarlos otra vez.</Upsell>
+            )}
 
             <h3 style={{ marginTop: 18 }}>{st.kind === 'Servicio' ? 'Tiempo de trabajo' : 'Mano de obra (opcional)'}</h3>
             <div className="row">
@@ -270,9 +286,10 @@ function Calculadora() {
           <section className="card">
             <h2>3. Gastos fijos del mes</h2>
             <p className="muted small">Los indispensables siempre se suman. Marca los demás que quieras cargarle a este precio.</p>
-            {fixed.length === 0 && (
-              <p className="small">Aún no tienes gastos fijos guardados. <Link href="/app/avanzado/gastos">Agrégalos aquí</Link> (arriendo, internet, publicidad…).</p>
+            {canSave && fixed.length === 0 && (
+              <p className="small">Aún no tienes gastos fijos guardados. Escribe uno abajo y guárdalo con «Guardar en mis gastos» (arriendo, internet, publicidad…).</p>
             )}
+            {!canSave && <Upsell feature="save">Guarda tus gastos fijos para elegirlos en cada cálculo.</Upsell>}
             {fixed.map((f) => {
               const on = f.mandatory || st.selectedFixed.includes(f.id);
               return (
@@ -287,7 +304,7 @@ function Calculadora() {
               <div className="field">
                 <label htmlFor="extra">Otro gasto fijo solo para este cálculo ($/mes)</label>
                 <input id="extra" inputMode="decimal" value={st.extraFixed} onChange={(e) => set('extraFixed', e.target.value)} placeholder="0" />
-                {num(st.extraFixed) > 0 && (
+                {canSave && num(st.extraFixed) > 0 && (
                   <div className="row" style={{ marginTop: 6 }}>
                     <input aria-label="Nombre del gasto" value={st.extraFixedName ?? ''} placeholder="Nombre para guardarlo" onChange={(e) => set('extraFixedName', e.target.value)} />
                     <button type="button" className="ghost shrink" onClick={saveExtraAsFixed}>Guardar en mis gastos</button>
@@ -379,17 +396,25 @@ function Calculadora() {
             {calc.compRatio != null && (
               <div className="kv"><span>Vs. competencia</span><strong>{calc.compRatio > 0 ? '+' : ''}{pct(calc.compRatio)}</strong></div>
             )}
-            <button type="button" style={{ width: '100%', marginTop: 14 }} onClick={() => saveQuote()} disabled={!calc.r.ok}>
-              {editingId ? 'Guardar cambios' : 'Guardar cálculo'}
-            </button>
-            {editingId && (
-              <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => saveQuote(true)} disabled={!calc.r.ok}>Guardar como cálculo nuevo</button>
+            {canSave ? (
+              <>
+                <button type="button" style={{ width: '100%', marginTop: 14 }} onClick={() => saveQuote()} disabled={!calc.r.ok}>
+                  {editingId ? 'Guardar cambios' : 'Guardar cálculo'}
+                </button>
+                {editingId && (
+                  <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => saveQuote(true)} disabled={!calc.r.ok}>Guardar como cálculo nuevo</button>
+                )}
+                <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={toEstimate} disabled={!calc.r.ok}>Pasar al cotizador →</button>
+                {editingId && <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={newCalc}>Empezar un cálculo nuevo</button>}
+              </>
+            ) : (
+              <div style={{ marginTop: 14 }}>
+                <Upsell feature="save">Guarda tus cálculos y pásalos al cotizador.</Upsell>
+              </div>
             )}
-            <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={toEstimate} disabled={!calc.r.ok}>Pasar al cotizador →</button>
-            {editingId && <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={newCalc}>Empezar un cálculo nuevo</button>}
           </section>
 
-          <section className="card">
+          {canSave && <section className="card">
             <h3>Cálculos guardados</h3>
             {quotes.length === 0 && <p className="muted small">Aquí aparecen los que guardes.</p>}
             {quotes.map((q) => (
@@ -402,7 +427,7 @@ function Calculadora() {
                 <button type="button" className="danger" aria-label="Borrar" onClick={() => deleteQuote(q.id)}>✕</button>
               </div>
             ))}
-          </section>
+          </section>}
         </aside>
       </div>
     </>

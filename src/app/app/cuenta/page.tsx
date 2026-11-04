@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 import { prepareLogo } from '@/lib/logo-client';
 import { DEFAULT_BRAND } from '@/lib/brand';
+import { usePlan } from '@/lib/use-plan';
+import { PLANS } from '@/lib/plans';
 
 type Profile = { name: string; logo: string | null; brand_color: string | null; biz_nit: string; biz_phone: string; biz_email: string; biz_address: string };
 
@@ -18,6 +20,7 @@ export default function Cuenta() {
   const [confirm, setConfirm] = useState('');
   const [msg, setMsg] = useState('');
   const [prof, setProf] = useState<Profile | null>(null);
+  const plan = usePlan();
 
   useEffect(() => {
     api<Account>('/api/account').then(setAcc).catch((e) => setMsg(e.message));
@@ -70,6 +73,12 @@ export default function Cuenta() {
         <div className="kv"><span>Nombre</span><strong>{acc.user.name || '—'}</strong></div>
         <div className="kv"><span>Correo</span><strong>{acc.user.email || 'Sin correo'}</strong></div>
         <div className="kv"><span>Formas de entrar</span><strong>{methods.join(', ') || '—'}</strong></div>
+        <div className="kv">
+          <span>Plan</span>
+          <strong>
+            {plan.loaded ? `${PLANS[plan.plan].name}${plan.lifetime ? ' (de por vida)' : ''}` : '…'} · <Link href="/planes">Ver planes</Link>
+          </strong>
+        </div>
         <div className="kv"><span>Cuenta creada</span><strong>{new Date(acc.user.created_at).toLocaleDateString('es-CO')}</strong></div>
         <div className="kv">
           <span>Términos aceptados</span>

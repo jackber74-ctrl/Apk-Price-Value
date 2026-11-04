@@ -202,3 +202,17 @@ tr:last-child td { border-bottom: 0; }
   .est-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .est-hide-print { display: none !important; }
 }
+
+/* Planes */
+.period-bar { justify-content: center; margin: 20px 0; }
+.period-bar .chip { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 16px; }
+.save-pill { font-size: 0.72rem; font-weight: 600; opacity: 0.9; }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; text-align: left; align-items: stretch; }
+.plan { position: relative; display: flex; flex-direction: column; }
+.plan.popular { border: 2px solid var(--accent); }
+.plan-flag { position: absolute; top: -12px; right: 14px; background: var(--accent); color: var(--accent-ink); }
+.plan-price { font-size: 1rem; margin: 10px 0 2px; }
+.plan-price strong { font-size: 2rem; }
+.plan-list { padding-left: 18px; margin: 8px 0 16px; font-size: 0.92rem; line-height: 1.5; flex: 1; }
+.plan .btn, .plan button { width: 100%; text-align: center; justify-content: center; }
+.nav .lock { font-size: 0.75rem; margin-left: 3px; }

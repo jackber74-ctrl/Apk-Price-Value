@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { requireUser, jsonError } from '@/lib/auth';
 import { RESOURCES, cleanRow } from '@/lib/resources';
 import { checkRefs } from '@/lib/refs';
+import { requireFeature } from '@/lib/plan-server';
 
 type Ctx = { params: Promise<{ resource: string }> };
 
@@ -11,6 +12,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   if (uid instanceof NextResponse) return uid;
   const res = RESOURCES[(await ctx.params).resource];
   if (!res) return jsonError('Recurso no válido.', 404);
+  const denied = await requireFeature(uid, res.feature);
+  if (denied) return denied;
   const rows = await query(`SELECT * FROM ${res.table} WHERE user_id = $1 ORDER BY ${res.order}`, [uid]);
   return NextResponse.json({ rows });
 }
@@ -20,6 +23,8 @@ export async function POST(req: Request, ctx: Ctx) {
   if (uid instanceof NextResponse) return uid;
   const res = RESOURCES[(await ctx.params).resource];
   if (!res) return jsonError('Recurso no válido.', 404);
+  const denied = await requireFeature(uid, res.feature);
+  if (denied) return denied;
   let row: Record<string, unknown>;
   try {
     row = cleanRow(res, await req.json(), false);

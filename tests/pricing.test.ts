@@ -156,3 +156,40 @@ describe('marca', () => {
     expect(isLogo('https://x.co/a.png')).toBe(false);
   });
 });
+
+import { PRICES, bestSaving, effectivePlan, planHas, pricing } from '../src/lib/plans';
+
+describe('planes', () => {
+  it('tiene los precios pedidos', () => {
+    expect(PRICES.pro).toEqual({ monthly: 1, semester: 4, annual: 7 });
+    expect(PRICES.plus).toEqual({ monthly: 2, semester: 7, annual: 10 });
+    expect(PRICES.max).toEqual({ monthly: 3, semester: 10, annual: 14 });
+  });
+  it('calcula el ahorro frente a pagar mes a mes', () => {
+    expect(pricing('pro', 'semester')).toMatchObject({ full: 6, saved: 2, pct: 33 });
+    expect(pricing('pro', 'annual')).toMatchObject({ full: 12, saved: 5, pct: 42 });
+    expect(pricing('plus', 'semester')).toMatchObject({ saved: 5, pct: 42 });
+    expect(pricing('plus', 'annual')).toMatchObject({ saved: 14, pct: 58 });
+    expect(pricing('max', 'semester')).toMatchObject({ saved: 8, pct: 44 });
+    expect(pricing('max', 'annual')).toMatchObject({ saved: 22, pct: 61 });
+    expect(pricing('max', 'monthly')).toMatchObject({ saved: 0, pct: 0 });
+    expect(bestSaving('semester')).toBe(44);
+    expect(bestSaving('annual')).toBe(61);
+  });
+  it('cada plan incluye lo del anterior', () => {
+    expect(planHas('free', 'save')).toBe(false);
+    expect(planHas('pro', 'save')).toBe(true);
+    expect(planHas('pro', 'search')).toBe(false);
+    expect(planHas('plus', 'search')).toBe(true);
+    expect(planHas('plus', 'advanced')).toBe(false);
+    expect(planHas('max', 'advanced')).toBe(true);
+  });
+  it('de por vida es máximo y un plan vencido vuelve a Free', () => {
+    const now = new Date('2026-11-05T00:00:00Z');
+    expect(effectivePlan({ plan: 'max', plan_lifetime: true, plan_expires_at: null }, now)).toBe('max');
+    expect(effectivePlan({ plan: 'pro', plan_lifetime: false, plan_expires_at: '2026-12-01T00:00:00Z' }, now)).toBe('pro');
+    expect(effectivePlan({ plan: 'pro', plan_lifetime: false, plan_expires_at: '2026-10-01T00:00:00Z' }, now)).toBe('free');
+    expect(effectivePlan({ plan: 'pro', plan_lifetime: false, plan_expires_at: null }, now)).toBe('free');
+    expect(effectivePlan(undefined, now)).toBe('free');
+  });
+});

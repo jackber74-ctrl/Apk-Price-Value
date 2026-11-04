@@ -1,4 +1,5 @@
 'use client';
+import PlanGate from '@/components/PlanGate';
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -325,7 +326,9 @@ function Cotizador() {
 export default function Page() {
   return (
     <Suspense fallback={<p className="muted">Cargando…</p>}>
-      <Cotizador />
+      <PlanGate feature="save" title="Cotizador">
+        <Cotizador />
+      </PlanGate>
     </Suspense>
   );
 }

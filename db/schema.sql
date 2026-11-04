@@ -211,3 +211,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_nit TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_phone TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_email TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_address TEXT NOT NULL DEFAULT '';
+
+-- ---------- Planes ----------
+-- La primera vez que se crean estas columnas, todos los usuarios que ya existían quedan con el plan máximo de por vida.
+-- Los que se registren después empiezan en Free.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'plan') THEN
+    ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free';
+    ALTER TABLE users ADD COLUMN plan_period TEXT;
+    ALTER TABLE users ADD COLUMN plan_expires_at TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN plan_lifetime BOOLEAN NOT NULL DEFAULT false;
+    UPDATE users SET plan = 'max', plan_lifetime = true;
+  END IF;
+END $$;

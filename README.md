@@ -42,6 +42,18 @@ Next.js 15 + PostgreSQL (`pg`), contraseñas con bcrypt y sesión firmada en coo
 
 Las tablas se crean solas en cada `npm run build` (o con `npm run db:migrate`).
 
+## Planes
+
+Free (calculadora básica, sin guardar), Pro (cotizador y guardar), Pro+ (buscador de proveedores) y Pro+Plus (todo, con modo
+avanzado). Cada plan incluye lo del anterior. Precios y ahorros en `src/lib/plans.ts`; el bloqueo se hace en el servidor
+(`requireFeature`, respuesta 402) y en las pantallas (`PlanGate`).
+
+- Los usuarios que existían cuando se creó la columna `users.plan` quedaron con el plan máximo de por vida.
+- Los pagos todavía no están conectados: `/api/billing/checkout` responde 503 hasta elegir una pasarela.
+- Para dar un plan a mano (pruebas o cobro fuera de la app):
+  `UPDATE users SET plan='pro', plan_period='annual', plan_expires_at = now() + interval '1 year' WHERE email='correo@ejemplo.com';`
+  (planes: `free`, `pro`, `plus`, `max`; de por vida: `plan_lifetime = true`).
+
 ## Textos legales (Colombia)
 
 - `/terminos` y `/privacidad` están redactados según la Ley 1581 de 2012, el Decreto 1377 de 2013 (Decreto 1074 de 2015) y la
