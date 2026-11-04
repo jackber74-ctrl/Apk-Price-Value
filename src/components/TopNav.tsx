@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { api } from '@/lib/client';
+import InstallButton from './InstallButton';
 
 const LINKS = [
   { href: '/app/calculadora', label: 'Calculadora' },
@@ -26,6 +27,7 @@ export default function TopNav() {
             <Link key={l.href} href={l.href} className={path.startsWith(l.href) ? 'active' : ''}>{l.label}</Link>
           ))}
         </nav>
+        <InstallButton />
         <button className="ghost" onClick={logout}>Salir</button>
       </div>
     </header>

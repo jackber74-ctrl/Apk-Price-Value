@@ -67,6 +67,20 @@ Cómo se unen las cuentas:
   contraseña y nunca se comprobó el correo, se le quita la contraseña para que nadie pueda quedarse con una cuenta ajena.
 - Facebook y TikTok no se unen por correo: cada uno crea su propia cuenta. TikTok no entrega correo.
 
+## Instalar como app y sacar el .apk
+
+La web es una PWA: en Chrome (Android) aparece el botón **Instalar app** arriba, y en iPhone se agrega desde Safari con
+*Compartir → Agregar a pantalla de inicio*. El manifiesto está en `src/app/manifest.ts`, los íconos en `public/icons/` y el
+service worker en `public/sw.js` (solo guarda archivos estáticos y una página sin conexión; nunca la API).
+
+Para generar el archivo **.apk / .aab**:
+
+1. Entra a [pwabuilder.com](https://www.pwabuilder.com), pega la dirección pública de la app y pulsa *Start*.
+2. En *Package for stores* elige **Android** y descarga el paquete (trae el .apk para instalar directo y el .aab para Play Store, con la llave de firma).
+3. Guarda la llave de firma y su contraseña: sin ellas no puedes actualizar la app en Play Store.
+4. Para quitar la barra del navegador, publica el archivo `/.well-known/assetlinks.json` con la huella SHA-256 que entrega PWABuilder.
+5. Play Store pide cuenta de desarrollador (US$25 una vez), política de privacidad (`/privacidad`) y capturas.
+
 ## Publicar en Vercel
 
 1. En Vercel: *Add New → Project* e importa este repositorio.
