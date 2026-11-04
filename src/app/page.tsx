@@ -15,11 +15,14 @@ export default async function Home() {
       <div className="actions">
         <Link className="btn" href="/registro">Crear cuenta gratis</Link>
         <Link className="btn ghost" href="/login">Ya tengo cuenta</Link>
+        <Link className="btn ghost" href="/descargar">Descargar la app</Link>
       </div>
       <div className="features">
         <div className="card"><h3>Calculadora simple</h3><p className="muted small">Pones tus costos, eliges el % de ganancia y los gastos fijos que aplican. Listo.</p></div>
+        <div className="card"><h3>Cotizador</h3><p className="muted small">Arma cotizaciones con tu logo y los precios de la calculadora, y guárdalas para editarlas.</p></div>
         <div className="card"><h3>Buscador de proveedores</h3><p className="muted small">Busca precios en tiendas y mayoristas y guárdalos como insumos.</p></div>
         <div className="card"><h3>Modo avanzado</h3><p className="muted small">Recetas, mano de obra con prestaciones, equipos, punto de equilibrio y comparador.</p></div>
+        <div className="card"><h3>En tu celular y computador</h3><p className="muted small">Instálala en Android, iPhone, Windows o Linux. <Link href="/descargar">Descargar la app</Link></p></div>
       </div>
     </main>
   );

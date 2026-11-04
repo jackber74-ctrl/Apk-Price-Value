@@ -37,6 +37,7 @@ Next.js 15 + PostgreSQL (`pg`), contraseñas con bcrypt y sesión firmada en coo
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Opcional. Activa «Continuar con Google» |
 | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Opcional. Activa «Continuar con Facebook» |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | Opcional. Activa «Continuar con TikTok» |
+| `NEXT_PUBLIC_APK_URL`, `NEXT_PUBLIC_WINDOWS_URL` | Opcional. Enlaces a un .apk o instalador de Windows ya generados (por ejemplo con PWABuilder); si existen, `/descargar` muestra el botón «Descargar el instalador» |
 | `LEGAL_NAME`, `LEGAL_ID`, `LEGAL_EMAIL`, `LEGAL_ADDRESS`, `LEGAL_CITY`, `LEGAL_PHONE` | Datos del responsable que salen en los Términos y la Política de privacidad |
 
 Las tablas se crean solas en cada `npm run build` (o con `npm run db:migrate`).
@@ -69,7 +70,7 @@ Cómo se unen las cuentas:
 
 ## Instalar como app y sacar el .apk
 
-La web es una PWA: en Chrome (Android) aparece el botón **Instalar app** arriba, y en iPhone se agrega desde Safari con
+La página pública **`/descargar`** deja elegir Android, iPhone, Windows o Linux y explica la instalación de cada uno; está enlazada desde el inicio, el menú y el pie de página. La web es una PWA: en Chrome (Android) aparece el botón **Instalar app** arriba, y en iPhone se agrega desde Safari con
 *Compartir → Agregar a pantalla de inicio*. El manifiesto está en `src/app/manifest.ts`, los íconos en `public/icons/` y el
 service worker en `public/sw.js` (solo guarda archivos estáticos y una página sin conexión; nunca la API).
 
