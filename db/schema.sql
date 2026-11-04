@@ -203,3 +203,11 @@ CREATE TABLE IF NOT EXISTS estimates (
 
 CREATE INDEX IF NOT EXISTS idx_customers_user ON customers(user_id);
 CREATE INDEX IF NOT EXISTS idx_estimates_user ON estimates(user_id);
+
+-- ---------- Logo y datos del negocio (salen en las cotizaciones) ----------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS logo TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_color TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_nit TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_phone TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_email TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS biz_address TEXT NOT NULL DEFAULT '';

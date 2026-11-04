@@ -9,7 +9,7 @@ export async function GET() {
   if (uid instanceof NextResponse) return uid;
 
   const [user] = await query(
-    'SELECT id, email, name, created_at, accepted_terms_at, terms_version FROM users WHERE id = $1',
+    'SELECT id, email, name, created_at, accepted_terms_at, terms_version, brand_color, biz_nit, biz_phone, biz_email, biz_address FROM users WHERE id = $1',
     [uid],
   );
   const data: Record<string, unknown> = {
