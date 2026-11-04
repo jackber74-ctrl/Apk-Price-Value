@@ -84,6 +84,22 @@ export const RESOURCES: Record<string, Resource> = {
     required: ['name', 'data'],
     order: 'created_at DESC',
   },
+  customers: {
+    table: 'customers',
+    cols: { name: 'text', doc: 'text', email: 'text', phone: 'text', address: 'text', notes: 'text' },
+    required: ['name'],
+    order: 'name',
+  },
+  estimates: {
+    table: 'estimates',
+    cols: {
+      customer_id: 'ref', number: 'text', title: 'text', status: 'text', issue_date: 'date', valid_days: 'num',
+      items: 'json', discount_pct: 'num', iva_pct: 'num', notes: 'text', total: 'num',
+    },
+    required: [],
+    refs: { customer_id: 'customers' },
+    order: 'created_at DESC',
+  },
 };
 
 /** Convierte el cuerpo recibido en valores seguros según el tipo de cada columna. */

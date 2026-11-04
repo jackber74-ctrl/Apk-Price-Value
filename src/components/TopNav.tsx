@@ -5,6 +5,7 @@ import { api } from '@/lib/client';
 
 const LINKS = [
   { href: '/app/calculadora', label: 'Calculadora' },
+  { href: '/app/cotizador', label: 'Cotizador' },
   { href: '/app/buscador', label: 'Buscar proveedores' },
   { href: '/app/avanzado', label: 'Avanzado' },
   { href: '/app/cuenta', label: 'Mi cuenta' },

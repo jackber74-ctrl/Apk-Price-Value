@@ -1,11 +1,14 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { api, create, list, remove } from '@/lib/client';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { api, create, list, remove, update } from '@/lib/client';
 import { money, pct } from '@/lib/format';
-import { DEFAULT_SETTINGS, breakEvenUnits, diagnose, monthlyAmount, suggestedPrice, type Settings } from '@/lib/pricing';
+import { DEFAULT_SETTINGS, breakEvenUnits, diagnose, monthlyAmount, suggestedPrice, supplyUnitCost, type Settings } from '@/lib/pricing';
 
 type FixedCost = { id: number; name: string; amount: number; frequency: string; mandatory: boolean };
+type Supply = { id: number; name: string; unit: string; price: number; qty: number; iva_pct: number; waste_pct: number };
 type Line = { id: string; name: string; amount: string };
 type Quote = { id: number; name: string; price: number; created_at: string; data: CalcState };
 
@@ -18,6 +21,7 @@ type CalcState = {
   units: string;
   selectedFixed: number[];
   extraFixed: string;
+  extraFixedName?: string;
   margin: number;
   marginMode: 'precio' | 'costo';
   commission: string;
@@ -57,21 +61,33 @@ function initialState(s: Settings): CalcState {
   };
 }
 
-export default function Calculadora() {
+function Calculadora() {
+  const router = useRouter();
+  const params = useSearchParams();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [fixed, setFixed] = useState<FixedCost[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [st, setSt] = useState<CalcState>(() => initialState(DEFAULT_SETTINGS));
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    Promise.all([api<{ settings: Settings }>('/api/settings'), list<FixedCost>('fixed_costs'), list<Quote>('quotes')])
-      .then(([s, f, q]) => {
+    Promise.all([api<{ settings: Settings }>('/api/settings'), list<FixedCost>('fixed_costs'), list<Quote>('quotes'), list<Supply>('supplies')])
+      .then(([s, f, q, sup]) => {
+        setSupplies(sup);
         setSettings(s.settings);
         setFixed(f);
         setQuotes(q);
-        setSt({ ...initialState(s.settings), selectedFixed: f.filter((x) => x.mandatory).map((x) => x.id) });
+        const base = { ...initialState(s.settings), selectedFixed: f.filter((x) => x.mandatory).map((x) => x.id) };
+        const open = q.find((x) => x.id === Number(params.get('id')));
+        if (open) {
+          setSt({ ...base, ...open.data });
+          setEditingId(open.id);
+        } else {
+          setSt(base);
+        }
       })
       .catch((e) => setMsg(e.message))
       .finally(() => setLoaded(true));
@@ -115,20 +131,73 @@ export default function Calculadora() {
     }));
   }
 
-  async function saveQuote() {
+  async function saveQuote(asNew = false): Promise<Quote | null> {
     const name = st.name.trim() || `Cálculo ${new Date().toLocaleDateString('es-CO')}`;
     try {
+      if (editingId && !asNew) {
+        const q = await update<Quote>('quotes', editingId, { name, data: st, price: calc.r.finalPrice });
+        setQuotes((p) => p.map((x) => (x.id === q.id ? q : x)));
+        setMsg(`Actualizado: ${name}`);
+        return q;
+      }
       const q = await create<Quote>('quotes', { name, data: st, price: calc.r.finalPrice });
       setQuotes((p) => [q, ...p]);
+      setEditingId(q.id);
       setMsg(`Guardado: ${name}`);
+      return q;
+    } catch (e) {
+      setMsg((e as Error).message);
+      return null;
+    }
+  }
+
+  async function toEstimate() {
+    const q = await saveQuote();
+    if (q) router.push(`/app/cotizador?agregar=${q.id}`);
+  }
+
+  function newCalc() {
+    setEditingId(null);
+    setSt({ ...initialState(settings), selectedFixed: fixed.filter((x) => x.mandatory).map((x) => x.id) });
+    setMsg('');
+  }
+
+  async function deleteQuote(id: number) {
+    if (!window.confirm('¿Eliminar este cálculo guardado?')) return;
+    await remove('quotes', id);
+    setQuotes((p) => p.filter((q) => q.id !== id));
+    if (editingId === id) setEditingId(null);
+  }
+
+  function addSupplyLine(idStr: string) {
+    const sp = supplies.find((x) => x.id === Number(idStr));
+    if (!sp) return;
+    const cost = supplyUnitCost(sp, settings.iva_responsable);
+    set('lines', [...st.lines, { id: uid(), name: sp.name, amount: String(Math.round(cost * 100) / 100) }]);
+  }
+
+  async function saveLineAsSupply(l: Line) {
+    if (!l.name.trim() || num(l.amount) <= 0) return setMsg('Escribe el concepto y el valor para guardarlo como insumo.');
+    try {
+      const sp = await create<Supply>('supplies', { name: l.name.trim(), qty: 1, unit: 'und', price: num(l.amount) });
+      setSupplies((p) => [...p, sp].sort((a, b) => a.name.localeCompare(b.name)));
+      setMsg(`«${sp.name}» quedó guardado en tus insumos.`);
     } catch (e) {
       setMsg((e as Error).message);
     }
   }
 
-  async function deleteQuote(id: number) {
-    await remove('quotes', id);
-    setQuotes((p) => p.filter((q) => q.id !== id));
+  async function saveExtraAsFixed() {
+    const name = (st.extraFixedName ?? '').trim();
+    if (!name || num(st.extraFixed) <= 0) return setMsg('Escribe el nombre y el valor del gasto para guardarlo.');
+    try {
+      const f = await create<FixedCost>('fixed_costs', { name, amount: num(st.extraFixed), frequency: 'Mensual', mandatory: false });
+      setFixed((p) => [...p, f]);
+      setSt((p) => ({ ...p, selectedFixed: [...p.selectedFixed, f.id], extraFixed: '', extraFixedName: '' }));
+      setMsg(`«${name}» quedó guardado en tus gastos fijos.`);
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
   }
 
   if (!loaded) return <p className="muted">Cargando…</p>;
@@ -170,10 +239,20 @@ export default function Calculadora() {
                   onChange={(e) => set('lines', st.lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
                 <input aria-label="Valor" inputMode="decimal" value={l.amount} placeholder="$ por unidad"
                   onChange={(e) => set('lines', st.lines.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))} />
+                <button type="button" className="ghost shrink" title="Guardar como insumo para reutilizar" aria-label="Guardar como insumo" onClick={() => saveLineAsSupply(l)}>💾</button>
                 <button type="button" className="danger shrink" aria-label="Quitar" onClick={() => set('lines', st.lines.filter((_, j) => j !== i))}>✕</button>
               </div>
             ))}
-            <button type="button" className="ghost" onClick={() => set('lines', [...st.lines, { id: uid(), name: '', amount: '' }])}>+ Agregar costo</button>
+            <div className="row">
+              <button type="button" className="ghost shrink" onClick={() => set('lines', [...st.lines, { id: uid(), name: '', amount: '' }])}>+ Agregar costo</button>
+              {supplies.length > 0 && (
+                <select aria-label="Agregar insumo guardado" value="" onChange={(e) => addSupplyLine(e.target.value)}>
+                  <option value="">+ Usar un insumo guardado…</option>
+                  {supplies.map((x) => <option key={x.id} value={x.id}>{x.name} — {money(supplyUnitCost(x, settings.iva_responsable))}/{x.unit || 'und'}</option>)}
+                </select>
+              )}
+            </div>
+            <p className="muted small" style={{ margin: '6px 0 0' }}>Con 💾 guardas el concepto en tus insumos para usarlo otra vez.</p>
 
             <h3 style={{ marginTop: 18 }}>{st.kind === 'Servicio' ? 'Tiempo de trabajo' : 'Mano de obra (opcional)'}</h3>
             <div className="row">
@@ -208,6 +287,12 @@ export default function Calculadora() {
               <div className="field">
                 <label htmlFor="extra">Otro gasto fijo solo para este cálculo ($/mes)</label>
                 <input id="extra" inputMode="decimal" value={st.extraFixed} onChange={(e) => set('extraFixed', e.target.value)} placeholder="0" />
+                {num(st.extraFixed) > 0 && (
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <input aria-label="Nombre del gasto" value={st.extraFixedName ?? ''} placeholder="Nombre para guardarlo" onChange={(e) => set('extraFixedName', e.target.value)} />
+                    <button type="button" className="ghost shrink" onClick={saveExtraAsFixed}>Guardar en mis gastos</button>
+                  </div>
+                )}
               </div>
               <div className="field">
                 <label htmlFor="units">Unidades que esperas vender al mes</label>
@@ -294,7 +379,14 @@ export default function Calculadora() {
             {calc.compRatio != null && (
               <div className="kv"><span>Vs. competencia</span><strong>{calc.compRatio > 0 ? '+' : ''}{pct(calc.compRatio)}</strong></div>
             )}
-            <button type="button" style={{ width: '100%', marginTop: 14 }} onClick={saveQuote} disabled={!calc.r.ok}>Guardar cálculo</button>
+            <button type="button" style={{ width: '100%', marginTop: 14 }} onClick={() => saveQuote()} disabled={!calc.r.ok}>
+              {editingId ? 'Guardar cambios' : 'Guardar cálculo'}
+            </button>
+            {editingId && (
+              <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => saveQuote(true)} disabled={!calc.r.ok}>Guardar como cálculo nuevo</button>
+            )}
+            <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={toEstimate} disabled={!calc.r.ok}>Pasar al cotizador →</button>
+            {editingId && <button type="button" className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={newCalc}>Empezar un cálculo nuevo</button>}
           </section>
 
           <section className="card">
@@ -302,7 +394,8 @@ export default function Calculadora() {
             {quotes.length === 0 && <p className="muted small">Aquí aparecen los que guardes.</p>}
             {quotes.map((q) => (
               <div className="check-row" key={q.id}>
-                <button type="button" className="ghost grow" style={{ textAlign: 'left' }} onClick={() => setSt({ ...initialState(settings), ...q.data })}>
+                <button type="button" className="ghost grow" style={{ textAlign: 'left', fontWeight: q.id === editingId ? 700 : 400 }}
+                  onClick={() => { setSt({ ...initialState(settings), ...q.data }); setEditingId(q.id); setMsg(`Editando «${q.name}».`); }}>
                   {q.name}
                 </button>
                 <span className="num">{money(Number(q.price))}</span>
@@ -313,5 +406,13 @@ export default function Calculadora() {
         </aside>
       </div>
     </>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<p className="muted">Cargando…</p>}>
+      <Calculadora />
+    </Suspense>
   );
 }
