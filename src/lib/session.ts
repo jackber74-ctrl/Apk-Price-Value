@@ -10,6 +10,8 @@ function key() {
   return new TextEncoder().encode(secret);
 }
 
+export const sessionKey = key;
+
 export async function signSession(userId: number) {
   return new SignJWT({ uid: userId })
     .setProtectedHeader({ alg: 'HS256' })

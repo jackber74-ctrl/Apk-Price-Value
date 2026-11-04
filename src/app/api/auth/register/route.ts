@@ -3,20 +3,22 @@ import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import { signSession, COOKIE, cookieOptions } from '@/lib/session';
 import { jsonError } from '@/lib/auth';
+import { TERMS_VERSION } from '@/lib/legal';
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const email = String(body.email ?? '').trim().toLowerCase();
   const name = String(body.name ?? '').trim().slice(0, 120);
   const password = String(body.password ?? '');
+  if (body.accept !== true) return jsonError('Debes aceptar los términos y la política de privacidad para crear tu cuenta.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonError('Escribe un correo válido.');
   if (password.length < 8) return jsonError('La contraseña debe tener al menos 8 caracteres.');
   const exists = await query('SELECT 1 FROM users WHERE email = $1', [email]);
-  if (exists.length) return jsonError('Ya existe una cuenta con ese correo.', 409);
+  if (exists.length) return jsonError('Ya existe una cuenta con ese correo. Si la creaste con Google o Facebook, entra con ese botón.', 409);
   const hash = await bcrypt.hash(password, 10);
   const [user] = await query<{ id: number }>(
-    'INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id',
-    [email, name, hash],
+    'INSERT INTO users (email, name, password_hash, accepted_terms_at, terms_version) VALUES ($1, $2, $3, now(), $4) RETURNING id',
+    [email, name, hash, TERMS_VERSION],
   );
   await query('INSERT INTO settings (user_id, business_name) VALUES ($1, $2) ON CONFLICT DO NOTHING', [
     user.id,

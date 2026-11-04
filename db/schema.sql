@@ -150,3 +150,24 @@ CREATE INDEX IF NOT EXISTS idx_fixed_user ON fixed_costs(user_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_product ON recipe_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_steps_product ON process_steps(product_id);
 CREATE INDEX IF NOT EXISTS idx_quotes_user ON quotes(user_id);
+
+-- ---------- Aceptación de términos e inicio de sesión social ----------
+-- Los usuarios que entran con TikTok no tienen correo, y los que entran con Google o Facebook no
+-- tienen contraseña, por eso estas dos columnas aceptan vacío.
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false;
+-- Prueba de la autorización previa, expresa e informada (Ley 1581 de 2012, art. 9)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
+
+CREATE TABLE IF NOT EXISTS identities (
+  id               SERIAL PRIMARY KEY,
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider         TEXT NOT NULL,
+  provider_user_id TEXT NOT NULL,
+  email            TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (provider, provider_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_identities_user ON identities(user_id);
