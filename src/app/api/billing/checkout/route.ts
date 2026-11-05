@@ -6,9 +6,10 @@ import { checkoutSignature, payuConfig, payuTest } from '@/lib/payu';
 import { baseUrl } from '@/lib/oauth';
 import { getPlan } from '@/lib/plan-server';
 import { query } from '@/lib/db';
+import { RapydError, createCheckout } from '@/lib/rapyd';
 
 /**
- * Inicia el pago. Con PayU devuelve { form: { action, fields } } para enviar un formulario firmado a su WebCheckout;
+ * Inicia el pago. Con Rapyd devuelve { url } de su página de pago. Con PayU devuelve { form: { action, fields } } para enviar un formulario firmado a su WebCheckout;
  * con Mercado Pago crea una preferencia de Checkout Pro y devuelve { url }.
  */
 export async function POST(req: Request) {
@@ -27,6 +28,16 @@ export async function POST(req: Request) {
   const [user] = await query<{ email: string; name: string }>('SELECT email, name FROM users WHERE id = $1', [uid]);
   const [first, ...rest] = (user?.name ?? '').trim().split(/\s+/);
   const title = `Apk Price Value · Plan ${PLANS[plan as keyof typeof PLANS].name} ${PERIOD_LABEL[period as keyof typeof PERIOD_LABEL].toLowerCase()}`;
+
+  if (provider() === 'rapyd') {
+    try {
+      return NextResponse.json({ url: await createCheckout({ uid, plan, period, base, description: title }) });
+    } catch (e) {
+      const why = e instanceof RapydError ? e.message : 'Error inesperado en el servidor; revisa los registros de Vercel.';
+      if (!(e instanceof RapydError)) console.error('Rapyd checkout', e instanceof Error ? e.message : e);
+      return jsonError(`No pudimos iniciar el pago con Rapyd. ${why}`, 502);
+    }
+  }
 
   if (provider() === 'payu') {
     const { merchantId, accountId, apiKey, action } = payuConfig();

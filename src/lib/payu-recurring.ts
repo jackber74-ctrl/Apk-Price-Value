@@ -152,7 +152,7 @@ export async function subscribe(uid: number, plan: PaidPlan, period: Period, car
     [uid, sub.id, customer.id, plan, period, amount, cur, number.slice(-4)],
   );
   // La nueva suscripción reemplaza a la anterior: se cancela en PayU para no cobrar dos veces.
-  const old = await query<{ external_id: string }>(`SELECT external_id FROM subscriptions WHERE user_id=$1 AND status='active' AND external_id<>$2`, [uid, sub.id]);
+  const old = await query<{ external_id: string }>(`SELECT external_id FROM subscriptions WHERE user_id=$1 AND provider='payu' AND status='active' AND external_id<>$2`, [uid, sub.id]);
   for (const o of old) {
     await call('DELETE', `/subscriptions/${o.external_id}`).catch((e) => console.error('PayU cancelar anterior', o.external_id, e?.message));
     await query(`UPDATE subscriptions SET status='replaced', canceled_at=now() WHERE external_id=$1`, [o.external_id]);
@@ -192,7 +192,7 @@ export async function syncBills(subscriptionId: string) {
 
 /** Cancela el cobro automático. El plan sigue vigente hasta su fecha. */
 export async function cancelSubscription(uid: number) {
-  const subs = await query<{ external_id: string }>(`SELECT external_id FROM subscriptions WHERE user_id=$1 AND status='active'`, [uid]);
+  const subs = await query<{ external_id: string }>(`SELECT external_id FROM subscriptions WHERE user_id=$1 AND provider='payu' AND status='active'`, [uid]);
   for (const s of subs) {
     await call('DELETE', `/subscriptions/${s.external_id}`);
     await query(`UPDATE subscriptions SET status='canceled', canceled_at=now() WHERE external_id=$1`, [s.external_id]);
@@ -202,7 +202,7 @@ export async function cancelSubscription(uid: number) {
 
 /** Revisa todas las suscripciones activas (lo corre el cron diario). */
 export async function syncAll() {
-  const subs = await query<{ external_id: string }>(`SELECT external_id FROM subscriptions WHERE status='active'`);
+  const subs = await query<{ external_id: string }>(`SELECT external_id FROM subscriptions WHERE provider='payu' AND status='active'`);
   let applied = 0;
   for (const s of subs) applied += await syncBills(s.external_id).catch((e) => (console.error('PayU sync', s.external_id, e?.message), 0));
   return { subscriptions: subs.length, applied };

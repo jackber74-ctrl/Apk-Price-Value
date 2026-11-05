@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { PERIOD_LABEL, PLANS, type Period, type PlanId } from '@/lib/plans';
 
-type Sub = { plan: PlanId; period: Period; card_last4: string } | null;
+type Sub = { plan: PlanId; period: Period; card_last4: string | null } | null;
 
 /** Muestra el cobro automático activo en Mi cuenta y permite cancelarlo. */
 export default function SubscriptionRow() {
@@ -34,7 +34,7 @@ export default function SubscriptionRow() {
       <strong>
         {sub ? (
           <>
-            {PLANS[sub.plan]?.name} {PERIOD_LABEL[sub.period]?.toLowerCase()} · tarjeta ···· {sub.card_last4}{' '}
+            {PLANS[sub.plan]?.name} {PERIOD_LABEL[sub.period]?.toLowerCase()} · {sub.card_last4 ? `tarjeta ···· ${sub.card_last4}` : 'con tarjeta'}{' '}
             <button type="button" className="link" onClick={cancel} disabled={busy}>{busy ? 'Cancelando…' : 'Cancelar'}</button>
           </>
         ) : msg}

@@ -8,8 +8,11 @@ export const mpToken = () => process.env.MP_ACCESS_TOKEN?.trim().replace(/^Beare
 export const mpEnabled = () => !!mpToken();
 export const payuEnabled = () =>
   process.env.PAYU_TEST === '1' || !!(process.env.PAYU_MERCHANT_ID?.trim() && process.env.PAYU_ACCOUNT_ID?.trim() && process.env.PAYU_API_KEY?.trim());
-/** Pasarela activa: PayU si está configurada; si no, Mercado Pago. */
-export const provider = (): 'payu' | 'mercadopago' | null => (payuEnabled() ? 'payu' : mpEnabled() ? 'mercadopago' : null);
+export const rapydEnabled = () => !!(process.env.RAPYD_ACCESS_KEY?.trim() && process.env.RAPYD_SECRET_KEY?.trim());
+export type Provider = 'rapyd' | 'payu' | 'mercadopago';
+/** Pasarela activa: Rapyd, luego PayU, luego Mercado Pago (la primera que tenga sus claves). */
+export const provider = (): Provider | null =>
+  rapydEnabled() ? 'rapyd' : payuEnabled() ? 'payu' : mpEnabled() ? 'mercadopago' : null;
 export const billingEnabled = () => provider() !== null;
 export const currency = () => (process.env.PAY_CURRENCY?.trim() || process.env.MP_CURRENCY?.trim() || 'COP').toUpperCase();
 export const usdRate = () => Number(process.env.USD_RATE) || Number(process.env.MP_USD_RATE) || 4000;
@@ -67,7 +70,7 @@ export type MpPayment = {
 };
 
 /** Activa el plan por un pago aprobado. Devuelve false si ya estaba registrado o no corresponde. */
-export async function applyPayment(p: MpPayment, via: 'mercadopago' | 'payu' = 'mercadopago', expectedAmount?: number) {
+export async function applyPayment(p: MpPayment, via: Provider = 'mercadopago', expectedAmount?: number) {
   if (p.status !== 'approved') return false;
   const ref = parseReference(p.external_reference);
   if (!ref) return false;
@@ -78,7 +81,7 @@ export async function applyPayment(p: MpPayment, via: 'mercadopago' | 'payu' = '
   const ins = await query<{ id: number }>(
     `INSERT INTO payments (user_id, provider, payment_id, plan, period, amount, currency)
      VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (payment_id) DO NOTHING RETURNING id`,
-    [ref.uid, via, via === 'payu' ? `payu:${p.id}` : String(p.id), ref.plan, ref.period, p.transaction_amount, p.currency_id],
+    [ref.uid, via, via === 'mercadopago' ? String(p.id) : `${via}:${p.id}`, ref.plan, ref.period, p.transaction_amount, p.currency_id],
   );
   if (!ins.length) return false;
 

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { recurringEnabled } from '@/lib/payu-recurring';
-import { currency, usdRate } from '@/lib/billing';
+import { currency, provider, usdRate } from '@/lib/billing';
+import { rapydRecurring } from '@/lib/rapyd';
 
 /** Suscripción automática activa de la persona (si tiene) y si el cobro automático está disponible. */
 export async function GET() {
@@ -12,5 +13,8 @@ export async function GET() {
     `SELECT plan, period, card_last4, amount, currency, created_at FROM subscriptions WHERE user_id=$1 AND status='active' ORDER BY id DESC LIMIT 1`,
     [uid],
   );
-  return NextResponse.json({ available: recurringEnabled(), subscription: sub ?? null, currency: currency(), rate: usdRate() });
+    // mode: 'card' = formulario de tarjeta en la app (PayU); 'hosted' = página de suscripción de la pasarela (Rapyd).
+  const gw = provider();
+  const mode = gw === 'rapyd' ? (rapydRecurring() ? 'hosted' : null) : gw === 'payu' && recurringEnabled() ? 'card' : null;
+  return NextResponse.json({ available: !!mode, mode, subscription: sub ?? null, currency: currency(), rate: usdRate() });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { billingEnabled, currency, mpEnabled, provider, usdRate } from '@/lib/billing';
 import { payuTest } from '@/lib/payu';
+import { rapydCountry, rapydRecurring, rapydSandbox } from '@/lib/rapyd';
 
 /** Dice si el cobro está bien configurado, sin mostrar ningún valor secreto. Solo para quien inició sesión. */
 export async function GET(req: Request) {
@@ -12,6 +13,14 @@ export async function GET(req: Request) {
   return NextResponse.json({
     pasarela: provider(),
     cobroActivo: billingEnabled(),
+    rapyd: {
+      modo: rapydSandbox() ? 'prueba' : 'produccion',
+      RAPYD_ACCESS_KEY: has('RAPYD_ACCESS_KEY'),
+      RAPYD_SECRET_KEY: has('RAPYD_SECRET_KEY'),
+      pais: rapydCountry(),
+      cobroAutomatico: rapydRecurring(),
+      webhook: `${base}/api/billing/rapyd/webhook`,
+    },
     payu: {
       modo: payuTest() ? 'prueba' : 'produccion',
       PAYU_MERCHANT_ID: has('PAYU_MERCHANT_ID'),
