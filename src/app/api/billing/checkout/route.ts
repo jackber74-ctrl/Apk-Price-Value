@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser, jsonError } from '@/lib/auth';
 import { isPeriod, isPlanId, PERIOD_LABEL, PLANS, planLevel } from '@/lib/plans';
-import { billingEnabled, chargeAmount, currency, makeReference } from '@/lib/billing';
+import { billingEnabled, mpToken, chargeAmount, currency, makeReference } from '@/lib/billing';
 import { baseUrl } from '@/lib/oauth';
 import { getPlan } from '@/lib/plan-server';
 
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const { plan, period } = body;
   const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${mpToken()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       items: [{
         id: `${plan}-${period}`,
@@ -39,8 +39,18 @@ export async function POST(req: Request) {
 
   const data = await res?.json().catch(() => ({}));
   if (!res || !res.ok || !data?.init_point) {
-    console.error('Mercado Pago preferencia falló', res?.status, JSON.stringify(data)?.slice(0, 300));
-    return jsonError('No pudimos iniciar el pago con Mercado Pago. Intenta de nuevo en un momento.', 502);
+    console.error('Mercado Pago preferencia falló', res?.status, JSON.stringify(data)?.slice(0, 500));
+    const why = explain(res?.status, data);
+    return NextResponse.json({ error: `No pudimos iniciar el pago con Mercado Pago. ${why}` }, { status: 502 });
   }
   return NextResponse.json({ url: data.init_point });
+}
+
+/** Traduce el error de Mercado Pago a algo que el dueño pueda corregir. */
+function explain(status: number | undefined, data: { message?: string; error?: string } | undefined) {
+  if (!status) return 'No se pudo conectar con Mercado Pago; intenta de nuevo en un momento.';
+  if (status === 401 || status === 403) return 'Mercado Pago rechazó la clave (MP_ACCESS_TOKEN). Usa el Access Token de producción de tu aplicación y vuelve a desplegar.';
+  const msg = data?.message || data?.error;
+  if (/currency/i.test(msg ?? '')) return `La moneda ${currency()} no es válida para tu cuenta (MP_CURRENCY). ${msg}`;
+  return msg ? `Mercado Pago dice: ${msg}` : `Mercado Pago respondió ${status}.`;
 }
