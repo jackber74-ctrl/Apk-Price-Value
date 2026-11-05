@@ -3,12 +3,14 @@ import { requireUser, jsonError } from '@/lib/auth';
 import { isPeriod, isPlanId, planLevel } from '@/lib/plans';
 import { getPlan } from '@/lib/plan-server';
 import { PayuError, cardType, luhn, recurringEnabled, subscribe } from '@/lib/payu-recurring';
+import { payuTest } from '@/lib/payu';
 
 /** Suscripción con cobro automático. Los datos de la tarjeta se pasan a PayU y no se guardan ni se registran aquí. */
 export async function POST(req: Request) {
   const uid = await requireUser();
   if (uid instanceof NextResponse) return uid;
   if (!recurringEnabled()) return jsonError('El cobro automático todavía no está activo.', 503);
+  if (!payuTest() && !process.env.PAYU_API_LOGIN?.trim()) return jsonError('Falta PAYU_API_LOGIN en Vercel para el cobro automático.', 503);
   const body = await req.json().catch(() => ({}));
   const { plan, period, card } = body ?? {};
   if (!isPlanId(plan) || plan === 'free' || !isPeriod(period)) return jsonError('Plan o periodo no válido.');
@@ -37,8 +39,9 @@ export async function POST(req: Request) {
   try {
     await subscribe(uid, plan, period, c);
   } catch (e) {
-    const msg = e instanceof PayuError ? e.message : 'Error inesperado.';
-    console.error('PayU suscripción falló', msg); // nunca se registran datos de la tarjeta
+    const msg = e instanceof PayuError ? e.message : 'Error inesperado en el servidor; revisa los registros de Vercel.';
+    // Nunca se registran datos de la tarjeta, solo el mensaje del error.
+    console.error('PayU suscripción falló', e instanceof Error ? `${e.name}: ${e.message}` : e);
     return jsonError(`PayU no pudo crear la suscripción: ${msg}`, 502);
   }
   const after = await getPlan(uid);

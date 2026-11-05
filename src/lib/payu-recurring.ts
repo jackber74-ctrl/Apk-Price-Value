@@ -36,9 +36,34 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   }).catch(() => null);
   if (!res) throw new PayuError('No se pudo conectar con PayU.');
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw new PayuError(data?.description || data?.message || `PayU respondió ${res.status}`, res.status);
+  const data = parseBody(text);
+  if (!res.ok) {
+    console.error('PayU API', method, path.split('?')[0], res.status, text.slice(0, 300));
+    throw new PayuError(explainPayu(res.status, data?.description || data?.message), res.status);
+  }
+  if (data === null) {
+    console.error('PayU API respuesta no JSON', method, path.split('?')[0], text.slice(0, 300));
+    throw new PayuError('PayU respondió en un formato inesperado.', res.status);
+  }
   return data as T;
+}
+
+/** PayU a veces responde en XML o HTML (sobre todo en errores); se extrae la descripción si viene. */
+function parseBody(text: string): Record<string, any> | null { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const d = text.match(/<description>([^<]*)<\/description>/i)?.[1] || text.match(/<message>([^<]*)<\/message>/i)?.[1];
+    return d ? { description: d } : null;
+  }
+}
+
+/** Traduce los errores comunes de PayU a algo que el dueño pueda corregir. */
+export function explainPayu(status: number, description?: string) {
+  if (status === 401 || status === 403)
+    return 'PayU rechazó el acceso. Revisa PAYU_API_LOGIN y PAYU_API_KEY en Vercel, y que PayU haya habilitado «Pagos recurrentes» en tu cuenta.';
+  return description ? `PayU dice: ${description}` : `PayU respondió ${status}.`;
 }
 
 /** Tipo de tarjeta por sus primeros dígitos (lo pide PayU al guardarla). */
