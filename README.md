@@ -55,6 +55,7 @@ avanzado). Cada plan incluye lo del anterior. Precios y ahorros en `src/lib/plan
   3. Para probar sin tu cuenta pon `PAYU_TEST=1` (usa la cuenta sandbox pública de PayU). Quítalo en producción.
   4. La confirmación se valida con la firma de PayU y activa el plan una sola vez (tabla `payments`, id `payu:<transacción>`).
   5. `/api/billing/status` (con sesión) muestra qué pasarela está activa y qué variables faltan.
+  6. **Cobro automático** (opcional): pide a PayU que active «Pagos recurrentes» en tu cuenta, luego pon `PAYU_RECURRING=1` y `PAYU_API_LOGIN` (Configuración técnica). Al elegir un plan aparece un formulario de tarjeta; PayU guarda la tarjeta (la app solo guarda los últimos 4 dígitos) y cobra solo cada mes, semestre o año. La persona cancela en Mi cuenta. Cada cobro pagado extiende el plan una vez (`payments` id `payu:bill:<id>`). Un cron diario (`vercel.json`, necesita `CRON_SECRET`) revisa los cobros por si algún aviso no llegó.
 - Cobro con **Mercado Pago** (Checkout Pro). Sin `MP_ACCESS_TOKEN`, `/api/billing/checkout` responde 503.
   1. En mercadopago.com.co/developers crea una aplicación y copia el *Access Token* de producción a `MP_ACCESS_TOKEN`.
   2. En Webhooks de esa aplicación agrega `https://TU-DOMINIO/api/billing/webhook` con el evento **Pagos**, y copia su clave secreta a `MP_WEBHOOK_SECRET`.

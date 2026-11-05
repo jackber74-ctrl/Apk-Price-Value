@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { applyPayment, currency } from '@/lib/billing';
 import { PAYU_APPROVED, payuConfig, validConfirmation } from '@/lib/payu';
+import { query } from '@/lib/db';
+import { syncBills } from '@/lib/payu-recurring';
 
 /**
  * Página de confirmación de PayU (servidor a servidor). PayU la llama por cada cambio de estado del pago.
@@ -14,6 +16,16 @@ export async function POST(req: Request) {
   if (!apiKey || f.merchant_id !== merchantId || !validConfirmation(f, apiKey)) {
     console.error('PayU confirmación con firma no válida', f.reference_sale);
     return NextResponse.json({ error: 'Firma no válida.' }, { status: 401 });
+  }
+  // Cobro de una suscripción automática: se revisan sus cobros en PayU y se extiende el plan.
+  const recurring = f.reference_recurring_payment || '';
+  if (recurring) {
+    const subs = await query<{ external_id: string }>(
+      `SELECT external_id FROM subscriptions WHERE $1 LIKE external_id || '%'`,
+      [recurring],
+    );
+    for (const s of subs) await syncBills(s.external_id).catch((e) => console.error('PayU sync', e?.message));
+    return NextResponse.json({ ok: true });
   }
   if (f.state_pol === PAYU_APPROVED) {
     await applyPayment(

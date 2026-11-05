@@ -240,3 +240,22 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+
+-- ---------- Suscripciones con cobro automático (PayU Pagos recurrentes) ----------
+-- No se guardan datos de tarjeta: PayU guarda la tarjeta y aquí solo quedan sus identificadores.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL DEFAULT 'payu',
+  external_id TEXT NOT NULL UNIQUE,
+  customer_id TEXT,
+  plan TEXT NOT NULL,
+  period TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  currency TEXT NOT NULL,
+  card_last4 TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  canceled_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);

@@ -67,11 +67,12 @@ export type MpPayment = {
 };
 
 /** Activa el plan por un pago aprobado. Devuelve false si ya estaba registrado o no corresponde. */
-export async function applyPayment(p: MpPayment, via: 'mercadopago' | 'payu' = 'mercadopago') {
+export async function applyPayment(p: MpPayment, via: 'mercadopago' | 'payu' = 'mercadopago', expectedAmount?: number) {
   if (p.status !== 'approved') return false;
   const ref = parseReference(p.external_reference);
   if (!ref) return false;
-  const expected = chargeAmount(ref.plan, ref.period);
+  // En suscripciones vale el monto pactado al suscribirse, aunque luego cambie la tasa.
+  const expected = expectedAmount ?? chargeAmount(ref.plan, ref.period);
   if (p.currency_id !== currency() || Number(p.transaction_amount) + 0.01 < expected) return false;
 
   const ins = await query<{ id: number }>(
