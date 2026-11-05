@@ -5,15 +5,20 @@ import { PERIOD_MONTHS, PRICES, isPeriod, isPlanId, type Period, type PlanId } f
 export type PaidPlan = Exclude<PlanId, 'free'>;
 
 export const mpToken = () => process.env.MP_ACCESS_TOKEN?.trim().replace(/^Bearer\s+/i, '') ?? '';
-export const billingEnabled = () => !!mpToken();
-export const currency = () => (process.env.MP_CURRENCY?.trim().toUpperCase() || 'COP');
+export const mpEnabled = () => !!mpToken();
+export const payuEnabled = () =>
+  process.env.PAYU_TEST === '1' || !!(process.env.PAYU_MERCHANT_ID?.trim() && process.env.PAYU_ACCOUNT_ID?.trim() && process.env.PAYU_API_KEY?.trim());
+/** Pasarela activa: PayU si está configurada; si no, Mercado Pago. */
+export const provider = (): 'payu' | 'mercadopago' | null => (payuEnabled() ? 'payu' : mpEnabled() ? 'mercadopago' : null);
+export const billingEnabled = () => provider() !== null;
+export const currency = () => (process.env.PAY_CURRENCY?.trim() || process.env.MP_CURRENCY?.trim() || 'COP').toUpperCase();
+export const usdRate = () => Number(process.env.USD_RATE) || Number(process.env.MP_USD_RATE) || 4000;
 
-/** Monto a cobrar. Los precios están en USD; en otra moneda se multiplican por MP_USD_RATE y se redondean al peso. */
+/** Monto a cobrar. Los precios están en USD; en otra moneda se multiplican por USD_RATE y se redondean al peso. */
 export function chargeAmount(plan: PaidPlan, period: Period) {
   const usd = PRICES[plan][period];
   if (currency() === 'USD') return usd;
-  const rate = Number(process.env.MP_USD_RATE) || 4000;
-  return Math.round(usd * rate);
+  return Math.round(usd * usdRate());
 }
 
 export const makeReference = (uid: number, plan: PaidPlan, period: Period) => `${uid}:${plan}:${period}`;
@@ -62,7 +67,7 @@ export type MpPayment = {
 };
 
 /** Activa el plan por un pago aprobado. Devuelve false si ya estaba registrado o no corresponde. */
-export async function applyPayment(p: MpPayment) {
+export async function applyPayment(p: MpPayment, via: 'mercadopago' | 'payu' = 'mercadopago') {
   if (p.status !== 'approved') return false;
   const ref = parseReference(p.external_reference);
   if (!ref) return false;
@@ -70,9 +75,9 @@ export async function applyPayment(p: MpPayment) {
   if (p.currency_id !== currency() || Number(p.transaction_amount) + 0.01 < expected) return false;
 
   const ins = await query<{ id: number }>(
-    `INSERT INTO payments (user_id, payment_id, plan, period, amount, currency)
-     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (payment_id) DO NOTHING RETURNING id`,
-    [ref.uid, String(p.id), ref.plan, ref.period, p.transaction_amount, p.currency_id],
+    `INSERT INTO payments (user_id, provider, payment_id, plan, period, amount, currency)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (payment_id) DO NOTHING RETURNING id`,
+    [ref.uid, via, via === 'payu' ? `payu:${p.id}` : String(p.id), ref.plan, ref.period, p.transaction_amount, p.currency_id],
   );
   if (!ins.length) return false;
 

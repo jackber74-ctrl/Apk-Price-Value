@@ -49,6 +49,12 @@ avanzado). Cada plan incluye lo del anterior. Precios y ahorros en `src/lib/plan
 (`requireFeature`, respuesta 402) y en las pantallas (`PlanGate`).
 
 - Los usuarios que existían cuando se creó la columna `users.plan` quedaron con el plan máximo de por vida.
+- Cobro con **PayU Latam** (WebCheckout: tarjetas, PSE, Nequi, Efecty…). Si `PAYU_*` está configurado, se usa PayU; si no, Mercado Pago.
+  1. En el panel de PayU, Configuración → Configuración técnica, copia Merchant ID, Account ID y API Key a `PAYU_MERCHANT_ID`, `PAYU_ACCOUNT_ID`, `PAYU_API_KEY`.
+  2. Las URLs ya van en cada pago: confirmación `https://TU-DOMINIO/api/billing/payu/confirmacion` y respuesta `https://TU-DOMINIO/api/billing/payu/respuesta`.
+  3. Para probar sin tu cuenta pon `PAYU_TEST=1` (usa la cuenta sandbox pública de PayU). Quítalo en producción.
+  4. La confirmación se valida con la firma de PayU y activa el plan una sola vez (tabla `payments`, id `payu:<transacción>`).
+  5. `/api/billing/status` (con sesión) muestra qué pasarela está activa y qué variables faltan.
 - Cobro con **Mercado Pago** (Checkout Pro). Sin `MP_ACCESS_TOKEN`, `/api/billing/checkout` responde 503.
   1. En mercadopago.com.co/developers crea una aplicación y copia el *Access Token* de producción a `MP_ACCESS_TOKEN`.
   2. En Webhooks de esa aplicación agrega `https://TU-DOMINIO/api/billing/webhook` con el evento **Pagos**, y copia su clave secreta a `MP_WEBHOOK_SECRET`.

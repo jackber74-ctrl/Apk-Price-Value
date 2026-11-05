@@ -8,6 +8,22 @@ import {
 
 type Me = { plan: PlanId; lifetime: boolean; period: Period | null; expires: string | null };
 
+/** Envía el formulario firmado de PayU en la misma ventana (sirve igual en el navegador y en la app instalada). */
+function submitForm({ action, fields }: { action: string; fields: Record<string, string> }) {
+  const f = document.createElement('form');
+  f.method = 'POST';
+  f.action = action;
+  for (const [name, value] of Object.entries(fields)) {
+    const i = document.createElement('input');
+    i.type = 'hidden';
+    i.name = name;
+    i.value = value;
+    f.appendChild(i);
+  }
+  document.body.appendChild(f);
+  f.submit();
+}
+
 export default function Planes() {
   const [period, setPeriod] = useState<Period>('annual');
   const [me, setMe] = useState<Me | null>(null);
@@ -17,7 +33,7 @@ export default function Planes() {
   useEffect(() => {
     const pago = new URLSearchParams(window.location.search).get('pago');
     if (pago === 'ok') setMsg('¡Gracias! Estamos confirmando tu pago; tu plan se activa en unos segundos. Si no cambia, recarga la página.');
-    else if (pago === 'pendiente') setMsg('Tu pago quedó pendiente. Cuando Mercado Pago lo confirme, tu plan se activa solo.');
+    else if (pago === 'pendiente') setMsg('Tu pago quedó pendiente. Cuando la pasarela lo confirme, tu plan se activa solo.');
     else if (pago === 'error') setMsg('El pago no se completó. Puedes intentarlo de nuevo.');
     fetch('/api/plan', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -36,6 +52,7 @@ export default function Planes() {
         body: JSON.stringify({ plan, period }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.ok && data.form) return void submitForm(data.form);
       if (res.ok && data.url) window.location.href = data.url;
       else setMsg(data.error ?? 'No pudimos iniciar el pago. Intenta de nuevo.');
     } finally {
