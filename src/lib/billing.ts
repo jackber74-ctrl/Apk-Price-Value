@@ -4,7 +4,8 @@ import { PERIOD_MONTHS, PRICES, isPeriod, isPlanId, type Period, type PlanId } f
 
 export type PaidPlan = Exclude<PlanId, 'free'>;
 
-export const billingEnabled = () => !!process.env.MP_ACCESS_TOKEN?.trim();
+export const mpToken = () => process.env.MP_ACCESS_TOKEN?.trim().replace(/^Bearer\s+/i, '') ?? '';
+export const billingEnabled = () => !!mpToken();
 export const currency = () => (process.env.MP_CURRENCY?.trim().toUpperCase() || 'COP');
 
 /** Monto a cobrar. Los precios están en USD; en otra moneda se multiplican por MP_USD_RATE y se redondean al peso. */
