@@ -33,7 +33,7 @@ describe.skipIf(!DB)('suscripción automática', () => {
       const path = url.replace(/^.*v4\.9/, '');
       calls.push(`${init.method} ${path}`);
       const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
-      if (init.method === 'GET' && path.startsWith('/plans/')) return json(404, { description: 'not found' });
+      if (init.method === 'GET' && path.startsWith('/plans/')) return new Response('<html><body>Not Found</body></html>', { status: 404 }); // PayU puede responder HTML
       if (path === '/plans') return json(201, {});
       if (path === '/customers') return json(201, { id: 'cus-1' });
       if (path.endsWith('/creditCards')) {
@@ -72,5 +72,13 @@ describe.skipIf(!DB)('suscripción automática', () => {
     expect(s.card_last4).toBe('1111');
     expect(await cancelSubscription(uid)).toBe(1);
     expect(calls).toContain('DELETE /subscriptions/sub-1');
+  });
+});
+
+describe('errores de PayU', () => {
+  it('explica credenciales rechazadas y mensajes de PayU', async () => {
+    const { explainPayu } = await import('../src/lib/payu-recurring');
+    expect(explainPayu(401)).toMatch(/PAYU_API_LOGIN/);
+    expect(explainPayu(400, 'Plan no existe')).toBe('PayU dice: Plan no existe');
   });
 });
