@@ -118,7 +118,11 @@ export default function Planes() {
               <ul className="plan-list">
                 {plan.includes.map((t) => <li key={t}>{t}</li>)}
               </ul>
-              {current ? (
+              {current && paid && !me?.lifetime ? (
+                <button type="button" onClick={() => choose(id as Exclude<PlanId, 'free'>)} disabled={busy === id}>
+                  {busy === id ? 'Un momento…' : 'Renovar (se suma a tu fecha)'}
+                </button>
+              ) : current ? (
                 <button type="button" className="ghost" disabled>{me?.lifetime ? 'Tu plan de por vida' : 'Tu plan actual'}</button>
               ) : !paid ? (
                 <Link className="btn ghost" href={me ? '/app/calculadora' : '/registro'}>{me ? 'Usar Free' : 'Empezar gratis'}</Link>
