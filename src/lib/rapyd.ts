@@ -104,46 +104,54 @@ const INTERVAL: Record<Period, { interval: string; interval_count: number }> = {
 /** Id fijo por plan, periodo, moneda y monto: si cambia el precio o la tasa se crea un plan nuevo. */
 export const rapydPlanId = (plan: PaidPlan, period: Period, amount: number, cur: string) =>
   `apv_${plan}_${period}_${String(amount).replace('.', '_')}_${cur.toLowerCase()}`;
-const PRODUCT_ID = 'apv_suscripcion';
 
-async function exists(path: string) {
-  try {
-    await call('GET', path);
-    return true;
-  } catch (e) {
-    if (e instanceof RapydError && e.status !== 0 && e.status !== 401) return false;
-    throw e;
-  }
+// Los ids que Rapyd devuelve al crear el producto y cada plan se guardan aquí (Rapyd puede ignorar el id que le pedimos).
+async function savedId(code: string) {
+  const [r] = await query<{ rapyd_id: string }>('SELECT rapyd_id FROM rapyd_refs WHERE code=$1', [code]);
+  return r?.rapyd_id ?? null;
 }
+const saveId = (code: string, id: string) =>
+  query('INSERT INTO rapyd_refs (code, rapyd_id) VALUES ($1,$2) ON CONFLICT (code) DO UPDATE SET rapyd_id=EXCLUDED.rapyd_id', [code, id]);
+export const forgetId = (code: string) => query('DELETE FROM rapyd_refs WHERE code=$1', [code]);
+
+const productCode = () => `product:${rapydSandbox() ? 'sandbox' : 'live'}`;
+const planCode = (id: string) => `plan:${rapydSandbox() ? 'sandbox' : 'live'}:${id}`;
 
 async function ensureProduct() {
-  if (await exists(`/v1/products/${PRODUCT_ID}`)) return;
-  const base = { id: PRODUCT_ID, name: 'Apk Price Value', description: 'Suscripción a Apk Price Value', active: true };
+  const saved = await savedId(productCode());
+  if (saved) return saved;
+  const base = { name: 'Apk Price Value', description: 'Suscripción a Apk Price Value', active: true };
   // La documentación dice «services» pero algunos mensajes de error piden «service»; se prueban ambos.
+  let made: { id: string };
   try {
-    await call('POST', '/v1/products', { ...base, type: 'services' });
+    made = await call<{ id: string }>('POST', '/v1/products', { ...base, type: 'services' });
   } catch {
-    await call('POST', '/v1/products', { ...base, type: 'service' });
+    made = await call<{ id: string }>('POST', '/v1/products', { ...base, type: 'service' });
   }
+  if (!made?.id) throw new RapydError('Rapyd no devolvió el id del producto.', 502);
+  await saveId(productCode(), made.id);
+  return made.id;
 }
 
 export async function ensurePlan(plan: PaidPlan, period: Period) {
   const amount = chargeAmount(plan, period);
   const cur = currency();
-  const id = rapydPlanId(plan, period, amount, cur);
-  if (await exists(`/v1/plans/${id}`)) return { id, amount, currency: cur };
-  await ensureProduct();
-  await call('POST', '/v1/plans', {
-    id,
-    product: PRODUCT_ID,
-    nickname: `${plan} ${period}`,
+  const code = planCode(rapydPlanId(plan, period, amount, cur));
+  const saved = await savedId(code);
+  if (saved) return { id: saved, code, amount, currency: cur };
+  const product = await ensureProduct();
+  const made = await call<{ id: string }>('POST', '/v1/plans', {
+    product,
+    nickname: `Apk Price Value ${plan} ${period}`,
     amount: amountValue(amount),
     currency: cur,
     billing_scheme: 'per_unit',
     usage_type: 'licensed',
     ...INTERVAL[period],
   });
-  return { id, amount, currency: cur };
+  if (!made?.id) throw new RapydError('Rapyd no devolvió el id del plan.', 502);
+  await saveId(code, made.id);
+  return { id: made.id, code, amount, currency: cur };
 }
 
 async function ensureCustomer(uid: number) {
@@ -161,19 +169,30 @@ async function ensureCustomer(uid: number) {
 /** Cobro automático: crea la página de suscripción de Rapyd y devuelve su dirección. */
 export async function createSubscriptionPage(o: { uid: number; plan: PaidPlan; period: Period; base: string }) {
   const customer = await ensureCustomer(o.uid);
-  const p = await ensurePlan(o.plan, o.period);
-  const page = await call<{ id: string; redirect_url: string }>('POST', '/v1/checkout/subscriptions', {
-    customer,
-    country: rapydCountry(),
-    billing: 'pay_automatically',
-    subscription_items: [{ plan: p.id, quantity: 1 }],
-    complete_payment_url: `${o.base}/planes?pago=ok`,
-    error_payment_url: `${o.base}/planes?pago=error`,
-    merchant_reference_id: makeReference(o.uid, o.plan, o.period),
-    metadata: { uid: o.uid, plan: o.plan, period: o.period },
-    language: 'es',
-    merchant_main_button: 'subscribe',
-  });
+  let p = await ensurePlan(o.plan, o.period);
+  const open = (planId: string) =>
+    call<{ id: string; redirect_url: string }>('POST', '/v1/checkout/subscriptions', {
+      customer,
+      country: rapydCountry(),
+      billing: 'pay_automatically',
+      subscription_items: [{ plan: planId, quantity: 1 }],
+      complete_payment_url: `${o.base}/planes?pago=ok`,
+      error_payment_url: `${o.base}/planes?pago=error`,
+      merchant_reference_id: makeReference(o.uid, o.plan, o.period),
+      metadata: { uid: o.uid, plan: o.plan, period: o.period },
+      language: 'es',
+      merchant_main_button: 'subscribe',
+    });
+  let page;
+  try {
+    page = await open(p.id);
+  } catch (e) {
+    // Si el plan guardado ya no existe en Rapyd (por ejemplo, se borró en el panel), se crea de nuevo una vez.
+    if (!(e instanceof RapydError) || !/plan/i.test(e.message)) throw e;
+    await forgetId(p.code);
+    p = await ensurePlan(o.plan, o.period);
+    page = await open(p.id);
+  }
   if (!page?.redirect_url) throw new RapydError('Rapyd no devolvió la página de suscripción.', 502);
   // Queda pendiente hasta que Rapyd avise el primer cobro pagado.
   await query(
