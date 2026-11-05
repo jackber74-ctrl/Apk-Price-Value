@@ -6,6 +6,7 @@ import { prepareLogo } from '@/lib/logo-client';
 import { DEFAULT_BRAND } from '@/lib/brand';
 import { usePlan } from '@/lib/use-plan';
 import { PLANS } from '@/lib/plans';
+import SubscriptionRow from '@/components/SubscriptionRow';
 
 type Profile = { name: string; logo: string | null; brand_color: string | null; biz_nit: string; biz_phone: string; biz_email: string; biz_address: string };
 
@@ -79,6 +80,7 @@ export default function Cuenta() {
             {plan.loaded ? `${PLANS[plan.plan].name}${plan.lifetime ? ' (de por vida)' : ''}` : '…'} · <Link href="/planes">Ver planes</Link>
           </strong>
         </div>
+        <SubscriptionRow />
         <div className="kv"><span>Cuenta creada</span><strong>{new Date(acc.user.created_at).toLocaleDateString('es-CO')}</strong></div>
         <div className="kv">
           <span>Términos aceptados</span>

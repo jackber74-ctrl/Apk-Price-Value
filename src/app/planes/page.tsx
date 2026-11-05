@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import CardForm from '@/components/CardForm';
 import { useEffect, useState } from 'react';
 import {
   PERIODS, PERIOD_LABEL, PERIOD_UNIT, PLANS, PLAN_ORDER, PRICES, bestSaving, planLevel, pricing, usd,
@@ -8,25 +9,57 @@ import {
 
 type Me = { plan: PlanId; lifetime: boolean; period: Period | null; expires: string | null };
 
+/** Envía el formulario firmado de PayU en la misma ventana (sirve igual en el navegador y en la app instalada). */
+function submitForm({ action, fields }: { action: string; fields: Record<string, string> }) {
+  const f = document.createElement('form');
+  f.method = 'POST';
+  f.action = action;
+  for (const [name, value] of Object.entries(fields)) {
+    const i = document.createElement('input');
+    i.type = 'hidden';
+    i.name = name;
+    i.value = value;
+    f.appendChild(i);
+  }
+  document.body.appendChild(f);
+  f.submit();
+}
+
 export default function Planes() {
   const [period, setPeriod] = useState<Period>('annual');
   const [me, setMe] = useState<Me | null>(null);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
+  const [auto, setAuto] = useState(false);
+  const [fx, setFx] = useState<{ currency: string; rate: number } | null>(null);
+  const [cardFor, setCardFor] = useState<Exclude<PlanId, 'free'> | null>(null);
 
-  useEffect(() => {
-    const pago = new URLSearchParams(window.location.search).get('pago');
-    if (pago === 'ok') setMsg('¡Gracias! Estamos confirmando tu pago; tu plan se activa en unos segundos. Si no cambia, recarga la página.');
-    else if (pago === 'pendiente') setMsg('Tu pago quedó pendiente. Cuando Mercado Pago lo confirme, tu plan se activa solo.');
-    else if (pago === 'error') setMsg('El pago no se completó. Puedes intentarlo de nuevo.');
+  const loadMe = () =>
     fetch('/api/plan', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then(setMe)
       .catch(() => {});
+
+  useEffect(() => {
+    const pago = new URLSearchParams(window.location.search).get('pago');
+    if (pago === 'ok') setMsg('¡Gracias! Estamos confirmando tu pago; tu plan se activa en unos segundos. Si no cambia, recarga la página.');
+    else if (pago === 'pendiente') setMsg('Tu pago quedó pendiente. Cuando la pasarela lo confirme, tu plan se activa solo.');
+    else if (pago === 'error') setMsg('El pago no se completó. Puedes intentarlo de nuevo.');
+    loadMe();
+    fetch('/api/billing/subscription', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { setAuto(!!d?.available); if (d?.currency) setFx({ currency: d.currency, rate: d.rate }); })
+      .catch(() => {});
   }, []);
 
-  async function choose(plan: Exclude<PlanId, 'free'>) {
+  function choose(plan: Exclude<PlanId, 'free'>) {
     if (!me) return void (window.location.href = `/registro`);
+    if (auto) return setCardFor(plan);
+    void payOnce(plan);
+  }
+
+  async function payOnce(plan: Exclude<PlanId, 'free'>) {
+    setCardFor(null);
     setBusy(plan);
     setMsg('');
     try {
@@ -36,6 +69,7 @@ export default function Planes() {
         body: JSON.stringify({ plan, period }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.ok && data.form) return void submitForm(data.form);
       if (res.ok && data.url) window.location.href = data.url;
       else setMsg(data.error ?? 'No pudimos iniciar el pago. Intenta de nuevo.');
     } finally {
@@ -56,7 +90,25 @@ export default function Planes() {
           {me.expires ? `, vigente hasta el ${new Date(me.expires).toLocaleDateString('es-CO')}` : ''}.
         </div>
       )}
-      {msg && <div className={`alert ${msg.startsWith('¡Gracias') || msg.startsWith('Tu pago quedó') ? '' : 'bad'}`}>{msg}</div>}
+      {cardFor && (
+        <CardForm
+          plan={cardFor}
+          period={period}
+          price={
+            fx && fx.currency !== 'USD'
+              ? `$${Math.round(pricing(cardFor, period).price * fx.rate).toLocaleString('es-CO')} ${fx.currency} (${usd(pricing(cardFor, period).price)})`
+              : usd(pricing(cardFor, period).price)
+          }
+          onClose={() => setCardFor(null)}
+          onPayOnce={() => payOnce(cardFor)}
+          onDone={(active) => {
+            setCardFor(null);
+            setMsg(active ? '¡Listo! Tu suscripción quedó activa y se renovará sola.' : 'Suscripción creada. Estamos confirmando el primer cobro; tu plan se activa en unos minutos.');
+            loadMe();
+          }}
+        />
+      )}
+      {msg && <div className={`alert ${msg.startsWith('¡Gracias') || msg.startsWith('Tu pago quedó') || msg.startsWith('¡Listo') || msg.startsWith('Suscripción creada') ? '' : 'bad'}`}>{msg}</div>}
 
       <div className="chips period-bar" role="tablist" aria-label="Periodo de pago">
         {PERIODS.map((p) => (
@@ -101,7 +153,11 @@ export default function Planes() {
               <ul className="plan-list">
                 {plan.includes.map((t) => <li key={t}>{t}</li>)}
               </ul>
-              {current ? (
+              {current && paid && !me?.lifetime ? (
+                <button type="button" onClick={() => choose(id as Exclude<PlanId, 'free'>)} disabled={busy === id}>
+                  {busy === id ? 'Un momento…' : 'Renovar (se suma a tu fecha)'}
+                </button>
+              ) : current ? (
                 <button type="button" className="ghost" disabled>{me?.lifetime ? 'Tu plan de por vida' : 'Tu plan actual'}</button>
               ) : !paid ? (
                 <Link className="btn ghost" href={me ? '/app/calculadora' : '/registro'}>{me ? 'Usar Free' : 'Empezar gratis'}</Link>

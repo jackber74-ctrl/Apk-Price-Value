@@ -220,3 +220,9 @@ tr:last-child td { border-bottom: 0; }
 .plan-card { display: block; color: inherit; text-decoration: none; border: 2px solid var(--accent); }
 .plan-card:hover { background: var(--card-hover, rgba(127,127,127,.08)); }
 .plan-card .small { color: var(--accent); font-weight: 600; }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+.sheet { width: 100%; max-width: 440px; max-height: 92vh; overflow: auto; text-align: left; }
+.sheet label { display: block; margin: 10px 0; }
+.sheet input { width: 100%; }
+button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }

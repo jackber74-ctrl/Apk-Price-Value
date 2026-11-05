@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { requireUser, jsonError } from '@/lib/auth';
 import { isPeriod, isPlanId, PERIOD_LABEL, PLANS, planLevel } from '@/lib/plans';
-import { billingEnabled, mpToken, chargeAmount, currency, makeReference } from '@/lib/billing';
+import { billingEnabled, mpToken, chargeAmount, currency, makeReference, provider } from '@/lib/billing';
+import { checkoutSignature, payuConfig, payuTest } from '@/lib/payu';
 import { baseUrl } from '@/lib/oauth';
 import { getPlan } from '@/lib/plan-server';
 import { query } from '@/lib/db';
 
-/** Crea una preferencia de Checkout Pro en Mercado Pago y devuelve { url } para llevar a la persona a pagar. */
+/**
+ * Inicia el pago. Con PayU devuelve { form: { action, fields } } para enviar un formulario firmado a su WebCheckout;
+ * con Mercado Pago crea una preferencia de Checkout Pro y devuelve { url }.
+ */
 export async function POST(req: Request) {
   const uid = await requireUser();
   if (uid instanceof NextResponse) return uid;
@@ -22,6 +26,34 @@ export async function POST(req: Request) {
   const { plan, period } = body;
   const [user] = await query<{ email: string; name: string }>('SELECT email, name FROM users WHERE id = $1', [uid]);
   const [first, ...rest] = (user?.name ?? '').trim().split(/\s+/);
+  const title = `Apk Price Value · Plan ${PLANS[plan as keyof typeof PLANS].name} ${PERIOD_LABEL[period as keyof typeof PERIOD_LABEL].toLowerCase()}`;
+
+  if (provider() === 'payu') {
+    const { merchantId, accountId, apiKey, action } = payuConfig();
+    // Referencia única por intento; las tres primeras partes dicen a quién y qué plan activar.
+    const referenceCode = `${makeReference(uid, plan, period)}:${Date.now().toString(36)}`;
+    const amount = String(chargeAmount(plan, period));
+    const cur = currency();
+    return NextResponse.json({
+      form: {
+        action,
+        fields: {
+          merchantId, accountId, referenceCode, amount, currency: cur,
+          description: title.slice(0, 255),
+          tax: '0', taxReturnBase: '0',
+          signature: checkoutSignature(apiKey, merchantId, referenceCode, amount, cur),
+          algorithmSignature: 'SHA256',
+          test: payuTest() ? '1' : '0',
+          buyerEmail: user?.email ?? '',
+          buyerFullName: user?.name ?? '',
+          lng: 'es',
+          responseUrl: `${base}/api/billing/payu/respuesta`,
+          confirmationUrl: `${base}/api/billing/payu/confirmacion`,
+        },
+      },
+    });
+  }
+
   const test = mpToken().startsWith('TEST-');
   const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
@@ -29,7 +61,7 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       items: [{
         id: `${plan}-${period}`,
-        title: `Apk Price Value · Plan ${PLANS[plan as keyof typeof PLANS].name} ${PERIOD_LABEL[period as keyof typeof PERIOD_LABEL].toLowerCase()}`,
+        title,
         quantity: 1,
         currency_id: currency(),
         unit_price: chargeAmount(plan, period),
