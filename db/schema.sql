@@ -259,3 +259,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   canceled_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
+-- Cliente de Rapyd de cada persona (para su cobro automático).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rapyd_customer TEXT;
+CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON subscriptions(customer_id);

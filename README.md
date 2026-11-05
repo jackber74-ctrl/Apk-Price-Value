@@ -49,6 +49,11 @@ avanzado). Cada plan incluye lo del anterior. Precios y ahorros en `src/lib/plan
 (`requireFeature`, respuesta 402) y en las pantallas (`PlanGate`).
 
 - Los usuarios que existían cuando se creó la columna `users.plan` quedaron con el plan máximo de por vida.
+- Cobro con **Rapyd** (tiene prioridad si sus claves están puestas). Página de pago de Rapyd para pago único y página de suscripción para el cobro automático; la tarjeta se escribe en Rapyd, la app nunca la ve.
+  1. En el panel de Rapyd → Developers → Credentials copia la clave de acceso y la clave secreta a `RAPYD_ACCESS_KEY` y `RAPYD_SECRET_KEY`. Con claves de prueba (panel en «Sandbox») pon también `RAPYD_SANDBOX=1`; quítalo con las claves de producción.
+  2. En Developers → Webhooks registra `https://<tu-dominio>/api/billing/rapyd/webhook` y marca al menos Payment Succeeded, Payment Completed e Invoice Payment Succeeded.
+  3. Opcional: `RAPYD_COUNTRY` (por defecto `CO`), `RAPYD_RECURRING=0` para apagar el cobro automático, `RAPYD_WEBHOOK_URL` si registraste otra URL.
+  4. Cada pago activa el plan una sola vez (`payments` id `rapyd:<pago>` o `rapyd:inv:<factura>`). `/api/billing/status` muestra si las claves están y la URL del webhook.
 - Cobro con **PayU Latam** (WebCheckout: tarjetas, PSE, Nequi, Efecty…). Si `PAYU_*` está configurado, se usa PayU; si no, Mercado Pago.
   1. En el panel de PayU, Configuración → Configuración técnica, copia Merchant ID, Account ID y API Key a `PAYU_MERCHANT_ID`, `PAYU_ACCOUNT_ID`, `PAYU_API_KEY`.
   2. Las URLs ya van en cada pago: confirmación `https://TU-DOMINIO/api/billing/payu/confirmacion` y respuesta `https://TU-DOMINIO/api/billing/payu/respuesta`.

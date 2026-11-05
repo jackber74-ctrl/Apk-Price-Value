@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import CardForm from '@/components/CardForm';
+import HostedChoice from '@/components/HostedChoice';
 import { useEffect, useState } from 'react';
 import {
   PERIODS, PERIOD_LABEL, PERIOD_UNIT, PLANS, PLAN_ORDER, PRICES, bestSaving, planLevel, pricing, usd,
@@ -30,7 +31,8 @@ export default function Planes() {
   const [me, setMe] = useState<Me | null>(null);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
-  const [auto, setAuto] = useState(false);
+  const [mode, setMode] = useState<'card' | 'hosted' | null>(null);
+  const [hostedFor, setHostedFor] = useState<Exclude<PlanId, 'free'> | null>(null);
   const [fx, setFx] = useState<{ currency: string; rate: number } | null>(null);
   const [cardFor, setCardFor] = useState<Exclude<PlanId, 'free'> | null>(null);
 
@@ -48,18 +50,20 @@ export default function Planes() {
     loadMe();
     fetch('/api/billing/subscription', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setAuto(!!d?.available); if (d?.currency) setFx({ currency: d.currency, rate: d.rate }); })
+      .then((d) => { setMode(d?.mode ?? (d?.available ? 'card' : null)); if (d?.currency) setFx({ currency: d.currency, rate: d.rate }); })
       .catch(() => {});
   }, []);
 
   function choose(plan: Exclude<PlanId, 'free'>) {
     if (!me) return void (window.location.href = `/registro`);
-    if (auto) return setCardFor(plan);
+    if (mode === 'card') return setCardFor(plan);
+    if (mode === 'hosted') return setHostedFor(plan);
     void payOnce(plan);
   }
 
   async function payOnce(plan: Exclude<PlanId, 'free'>) {
     setCardFor(null);
+    setHostedFor(null);
     setBusy(plan);
     setMsg('');
     try {
@@ -76,6 +80,11 @@ export default function Planes() {
       setBusy('');
     }
   }
+
+  const priceText = (plan: Exclude<PlanId, 'free'>) =>
+    fx && fx.currency !== 'USD'
+      ? `$${Math.round(pricing(plan, period).price * fx.rate).toLocaleString('es-CO')} ${fx.currency} (${usd(pricing(plan, period).price)})`
+      : usd(pricing(plan, period).price);
 
   return (
     <main className="hero" style={{ marginTop: '5vh', maxWidth: 1040 }}>
@@ -94,11 +103,7 @@ export default function Planes() {
         <CardForm
           plan={cardFor}
           period={period}
-          price={
-            fx && fx.currency !== 'USD'
-              ? `$${Math.round(pricing(cardFor, period).price * fx.rate).toLocaleString('es-CO')} ${fx.currency} (${usd(pricing(cardFor, period).price)})`
-              : usd(pricing(cardFor, period).price)
-          }
+          price={priceText(cardFor)}
           onClose={() => setCardFor(null)}
           onPayOnce={() => payOnce(cardFor)}
           onDone={(active) => {
@@ -107,6 +112,9 @@ export default function Planes() {
             loadMe();
           }}
         />
+      )}
+      {hostedFor && (
+        <HostedChoice plan={hostedFor} period={period} price={priceText(hostedFor)} onClose={() => setHostedFor(null)} onPayOnce={() => payOnce(hostedFor)} />
       )}
       {msg && <div className={`alert ${msg.startsWith('¡Gracias') || msg.startsWith('Tu pago quedó') || msg.startsWith('¡Listo') || msg.startsWith('Suscripción creada') ? '' : 'bad'}`}>{msg}</div>}
 
