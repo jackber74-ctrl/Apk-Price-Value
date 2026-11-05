@@ -4,6 +4,7 @@ import { isPeriod, isPlanId, PERIOD_LABEL, PLANS, planLevel } from '@/lib/plans'
 import { billingEnabled, mpToken, chargeAmount, currency, makeReference } from '@/lib/billing';
 import { baseUrl } from '@/lib/oauth';
 import { getPlan } from '@/lib/plan-server';
+import { query } from '@/lib/db';
 
 /** Crea una preferencia de Checkout Pro en Mercado Pago y devuelve { url } para llevar a la persona a pagar. */
 export async function POST(req: Request) {
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
 
   const base = baseUrl(req);
   const { plan, period } = body;
+  const [user] = await query<{ email: string; name: string }>('SELECT email, name FROM users WHERE id = $1', [uid]);
+  const [first, ...rest] = (user?.name ?? '').trim().split(/\s+/);
+  const test = mpToken().startsWith('TEST-');
   const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
     headers: { Authorization: `Bearer ${mpToken()}`, 'Content-Type': 'application/json' },
@@ -29,7 +33,14 @@ export async function POST(req: Request) {
         quantity: 1,
         currency_id: currency(),
         unit_price: chargeAmount(plan, period),
+        category_id: 'services',
+        description: 'Suscripción a Apk Price Value',
       }],
+      // Los datos del comprador ayudan a que Mercado Pago apruebe el pago (sobre todo PSE y tarjetas).
+      // En modo de prueba no se envían: el comprador debe ser un usuario de prueba distinto.
+      ...(test || !user ? {} : { payer: { email: user.email, ...(first ? { name: first, surname: rest.join(' ') } : {}) } }),
+      statement_descriptor: 'APKPRICEVALUE',
+      binary_mode: false,
       external_reference: makeReference(uid, plan, period),
       back_urls: { success: `${base}/planes?pago=ok`, pending: `${base}/planes?pago=pendiente`, failure: `${base}/planes?pago=error` },
       auto_return: 'approved',
@@ -38,12 +49,13 @@ export async function POST(req: Request) {
   }).catch(() => null);
 
   const data = await res?.json().catch(() => ({}));
-  if (!res || !res.ok || !data?.init_point) {
+  const url = test ? data?.sandbox_init_point || data?.init_point : data?.init_point;
+  if (!res || !res.ok || !url) {
     console.error('Mercado Pago preferencia falló', res?.status, JSON.stringify(data)?.slice(0, 500));
     const why = explain(res?.status, data);
     return NextResponse.json({ error: `No pudimos iniciar el pago con Mercado Pago. ${why}` }, { status: 502 });
   }
-  return NextResponse.json({ url: data.init_point });
+  return NextResponse.json({ url });
 }
 
 /** Traduce el error de Mercado Pago a algo que el dueño pueda corregir. */
