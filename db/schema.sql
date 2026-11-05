@@ -262,3 +262,9 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
 -- Cliente de Rapyd de cada persona (para su cobro automático).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rapyd_customer TEXT;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON subscriptions(customer_id);
+-- Ids que Rapyd asignó al producto y a cada plan de cobro automático.
+CREATE TABLE IF NOT EXISTS rapyd_refs (
+  code TEXT PRIMARY KEY,
+  rapyd_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

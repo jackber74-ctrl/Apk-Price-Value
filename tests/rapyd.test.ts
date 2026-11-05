@@ -38,6 +38,8 @@ describe('firma de Rapyd', () => {
 const DB = !!process.env.DATABASE_URL;
 describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
   let uid = 0;
+  let plans = 0;
+  const rejectPlan = new Set<string>();
   const calls: { method: string; path: string; body: Record<string, unknown> }[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: (t: string, p?: unknown[]) => Promise<any[]>;
@@ -47,6 +49,7 @@ describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
     process.env.RAPYD_SANDBOX = '1';
     process.env.PAY_CURRENCY = 'COP';
     process.env.USD_RATE = '4000';
+    await query("DELETE FROM rapyd_refs WHERE code LIKE 'p%:sandbox%'");
     const [u] = await query("INSERT INTO users(email,name,password_hash) VALUES('rapyd@test.co','Ana Pérez','x') RETURNING id");
     uid = u.id;
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
@@ -59,8 +62,10 @@ describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
       const notFound = () => new Response(JSON.stringify({ status: { status: 'ERROR', error_code: 'NOT_FOUND' } }), { status: 404 });
       if (path === '/v1/checkout') return ok({ id: 'checkout_1', redirect_url: 'https://sandboxcheckout.rapyd.net/?token=checkout_1' });
       if (init.method === 'GET') return notFound();
-      if (path === '/v1/products') return ok({ id: body.id });
-      if (path === '/v1/plans') return ok({ id: body.id });
+      if (path === '/v1/products') return ok({ id: 'product_abc' });
+      if (path === '/v1/plans') return ok({ id: `plan_${++plans}` }); // Rapyd asigna su propio id
+      if (path === '/v1/checkout/subscriptions' && rejectPlan.has(body.subscription_items[0].plan))
+        return new Response(JSON.stringify({ status: { status: 'ERROR', error_code: 'ERROR_GET_PLAN', message: 'The request tried to retrieve a plan, but the plan was not found.' } }), { status: 400 });
       if (path === '/v1/customers') return ok({ id: 'cus_1' });
       if (path === '/v1/checkout/subscriptions') return ok({ id: 'hp_sub_1', redirect_url: 'https://sandboxcheckout.rapyd.net/?token=hp_sub_1' });
       if (init.method === 'DELETE') return ok({ id: path.split('/').pop(), status: 'canceled' });
@@ -71,6 +76,7 @@ describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
   afterAll(async () => {
     vi.unstubAllGlobals();
     await query('DELETE FROM users WHERE id=$1', [uid]);
+    await query("DELETE FROM rapyd_refs WHERE code LIKE 'p%:sandbox%'");
   });
 
   it('pago único: crea la página y el aviso activa el plan una sola vez', async () => {
@@ -93,9 +99,9 @@ describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
     const url = await createSubscriptionPage({ uid, plan: 'max', period: 'annual', base: 'https://app.test' });
     expect(url).toContain('hp_sub_1');
     const page = calls.find((c) => c.path === '/v1/checkout/subscriptions')!.body;
-    expect(page).toMatchObject({ customer: 'cus_1', billing: 'pay_automatically' });
+    expect(page).toMatchObject({ customer: 'cus_1', billing: 'pay_automatically', subscription_items: [{ plan: 'plan_1', quantity: 1 }] });
     const plan = calls.find((c) => c.path === '/v1/plans')!.body;
-    expect(plan).toMatchObject({ product: 'apv_suscripcion', interval: 'year', interval_count: 1, currency: 'COP' });
+    expect(plan).toMatchObject({ product: 'product_abc', interval: 'year', interval_count: 1, currency: 'COP' });
     const [sub] = await query("SELECT status, amount FROM subscriptions WHERE external_id='hp_sub_1'");
     expect(sub.status).toBe('pending');
 
@@ -115,5 +121,17 @@ describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
 
     expect(await cancelRapyd(uid)).toBe(1);
     expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/payments/subscriptions/sub_1')).toBe(true);
+  });
+
+  it('reusa el plan guardado y lo crea de nuevo si Rapyd ya no lo encuentra', async () => {
+    const { createSubscriptionPage } = await import('../src/lib/rapyd');
+    const before = calls.filter((c) => c.path === '/v1/plans').length;
+    await createSubscriptionPage({ uid, plan: 'max', period: 'annual', base: 'https://app.test' });
+    expect(calls.filter((c) => c.path === '/v1/plans').length).toBe(before); // mismo plan, sin crear otro
+    rejectPlan.add('plan_1');
+    await createSubscriptionPage({ uid, plan: 'max', period: 'annual', base: 'https://app.test' });
+    const last = calls.filter((c) => c.path === '/v1/checkout/subscriptions').pop()!.body;
+    expect(last.subscription_items).toEqual([{ plan: 'plan_2', quantity: 1 }]);
+    expect(calls.filter((c) => c.path === '/v1/products').length).toBe(1);
   });
 });
