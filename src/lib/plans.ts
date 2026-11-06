@@ -71,4 +71,21 @@ export function effectivePlan(row: PlanRow | undefined, now = new Date()): PlanI
   return plan;
 }
 
+/** Pesos colombianos por dólar. Los precios base están en USD y se muestran y cobran en COP con esta tasa fija. */
+export const USD_COP = 3700;
+
+/** Precio del periodo en pesos (redondeado al peso). */
+export const priceCop = (plan: Exclude<PlanId, 'free'>, period: Period) => Math.round(PRICES[plan][period] * USD_COP);
+
+/** Lo mismo que pricing() pero en pesos colombianos. */
+export function pricingCop(plan: Exclude<PlanId, 'free'>, period: Period) {
+  const p = pricing(plan, period);
+  const price = priceCop(plan, period);
+  const full = Math.round(p.full * USD_COP);
+  return { price, full, saved: full - price, pct: p.pct, perMonth: price / PERIOD_MONTHS[period] };
+}
+
+/** $25.900 (separador de miles con punto, sin decimales). */
+export const cop = (v: number) => `$${String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+
 export const usd = (v: number) => `US$${Number.isInteger(v) ? v : v.toFixed(2).replace('.', ',')}`;

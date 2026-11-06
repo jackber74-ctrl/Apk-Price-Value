@@ -48,7 +48,6 @@ describe.skipIf(!DB)('Rapyd: pago único y cobro automático', () => {
     query = (await import('../src/lib/db')).query;
     process.env.RAPYD_SANDBOX = '1';
     process.env.PAY_CURRENCY = 'COP';
-    process.env.USD_RATE = '4000';
     await query("DELETE FROM rapyd_refs WHERE code LIKE 'p%:sandbox%'");
     const [u] = await query("INSERT INTO users(email,name,password_hash) VALUES('rapyd@test.co','Ana Pérez','x') RETURNING id");
     uid = u.id;

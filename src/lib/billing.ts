@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { query } from './db';
-import { PERIOD_MONTHS, PRICES, isPeriod, isPlanId, type Period, type PlanId } from './plans';
+import { PERIOD_MONTHS, PRICES, USD_COP, isPeriod, isPlanId, priceCop, type Period, type PlanId } from './plans';
 
 export type PaidPlan = Exclude<PlanId, 'free'>;
 
@@ -15,13 +15,14 @@ export const provider = (): Provider | null =>
   rapydEnabled() ? 'rapyd' : payuEnabled() ? 'payu' : mpEnabled() ? 'mercadopago' : null;
 export const billingEnabled = () => provider() !== null;
 export const currency = () => (process.env.PAY_CURRENCY?.trim() || process.env.MP_CURRENCY?.trim() || 'COP').toUpperCase();
-export const usdRate = () => Number(process.env.USD_RATE) || Number(process.env.MP_USD_RATE) || 4000;
+/** Tasa fija definida en plans.ts (USD_COP), la misma que se muestra en la página de planes. */
+export const usdRate = () => USD_COP;
 
-/** Monto a cobrar. Los precios están en USD; en otra moneda se multiplican por USD_RATE y se redondean al peso. */
+/** Monto a cobrar: en COP es el precio que se muestra (USD × USD_COP, redondeado al peso). */
 export function chargeAmount(plan: PaidPlan, period: Period) {
   const usd = PRICES[plan][period];
   if (currency() === 'USD') return usd;
-  return Math.round(usd * usdRate());
+  return currency() === 'COP' ? priceCop(plan, period) : Math.round(usd * usdRate());
 }
 
 export const makeReference = (uid: number, plan: PaidPlan, period: Period) => `${uid}:${plan}:${period}`;
