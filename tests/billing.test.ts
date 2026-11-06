@@ -2,10 +2,10 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { chargeAmount, makeReference, nextExpiry, parseReference } from '../src/lib/billing';
 
 describe('cobros', () => {
-  beforeEach(() => { process.env.MP_CURRENCY = 'COP'; process.env.MP_USD_RATE = '4000'; });
-  it('convierte USD a pesos', () => {
-    expect(chargeAmount('pro', 'monthly')).toBe(4000);
-    expect(chargeAmount('max', 'annual')).toBe(56000);
+  beforeEach(() => { process.env.MP_CURRENCY = 'COP'; });
+  it('convierte USD a pesos a 3.700', () => {
+    expect(chargeAmount('pro', 'monthly')).toBe(3700);
+    expect(chargeAmount('max', 'annual')).toBe(51800);
   });
   it('en USD cobra el precio tal cual', () => {
     process.env.MP_CURRENCY = 'USD';

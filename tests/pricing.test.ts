@@ -157,7 +157,7 @@ describe('marca', () => {
   });
 });
 
-import { PRICES, bestSaving, effectivePlan, planHas, pricing } from '../src/lib/plans';
+import { PRICES, bestSaving, cop, effectivePlan, planHas, priceCop, pricing, pricingCop } from '../src/lib/plans';
 
 describe('planes', () => {
   it('tiene los precios pedidos', () => {
@@ -191,5 +191,16 @@ describe('planes', () => {
     expect(effectivePlan({ plan: 'pro', plan_lifetime: false, plan_expires_at: '2026-10-01T00:00:00Z' }, now)).toBe('free');
     expect(effectivePlan({ plan: 'pro', plan_lifetime: false, plan_expires_at: null }, now)).toBe('free');
     expect(effectivePlan(undefined, now)).toBe('free');
+  });
+});
+
+describe('precios en pesos colombianos (3.700 por dólar)', () => {
+  it('convierte cada plan y formatea con punto de miles', () => {
+    expect(priceCop('pro', 'monthly')).toBe(3700);
+    expect(priceCop('pro', 'annual')).toBe(25900);
+    expect(priceCop('max', 'annual')).toBe(51800);
+    expect(cop(25900)).toBe('$25.900');
+    expect(cop(2158.33)).toBe('$2.158');
+    expect(pricingCop('max', 'annual')).toMatchObject({ price: 51800, full: 133200, saved: 81400, pct: 61 });
   });
 });

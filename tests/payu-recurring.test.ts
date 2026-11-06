@@ -26,7 +26,6 @@ describe.skipIf(!DB)('suscripción automática', () => {
     process.env.PAYU_TEST = '1';
     process.env.PAYU_RECURRING = '1';
     process.env.PAY_CURRENCY = 'COP';
-    process.env.USD_RATE = '4000';
     const [u] = await query("INSERT INTO users(email,name,password_hash) VALUES('rec@test.co','Ana Pérez','x') RETURNING id");
     uid = u.id;
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
@@ -41,7 +40,7 @@ describe.skipIf(!DB)('suscripción automática', () => {
         return json(201, { token: 'tok-1' });
       }
       if (path === '/subscriptions') {
-        bills = [{ id: 'b1', state: 'PAID', amount: 28000, currency: 'COP' }];
+        bills = [{ id: 'b1', state: 'PAID', amount: 25900, currency: 'COP' }];
         return json(201, { id: 'sub-1' });
       }
       if (path.startsWith('/recurringBill')) return json(200, { recurringBillList: bills });
@@ -63,7 +62,7 @@ describe.skipIf(!DB)('suscripción automática', () => {
     const first = new Date(u.plan_expires_at).getTime();
 
     expect(await syncBills('sub-1')).toBe(0); // mismo cobro, no suma dos veces
-    bills.push({ id: 'b2', state: 'PAID', amount: 28000, currency: 'COP' }); // renovación del año siguiente
+    bills.push({ id: 'b2', state: 'PAID', amount: 25900, currency: 'COP' }); // renovación del año siguiente
     expect(await syncBills('sub-1')).toBe(1);
     [u] = await query('SELECT plan_expires_at FROM users WHERE id=$1', [uid]);
     expect(new Date(u.plan_expires_at).getTime()).toBeGreaterThan(first + 300 * 86400000);

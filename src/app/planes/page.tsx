@@ -4,7 +4,7 @@ import CardForm from '@/components/CardForm';
 import HostedChoice from '@/components/HostedChoice';
 import { useEffect, useState } from 'react';
 import {
-  PERIODS, PERIOD_LABEL, PERIOD_UNIT, PLANS, PLAN_ORDER, PRICES, bestSaving, planLevel, pricing, usd,
+  PERIODS, PERIOD_LABEL, PERIOD_UNIT, PLANS, PLAN_ORDER, bestSaving, cop, planLevel, priceCop, pricingCop,
   type Period, type PlanId,
 } from '@/lib/plans';
 
@@ -33,7 +33,6 @@ export default function Planes() {
   const [busy, setBusy] = useState('');
   const [mode, setMode] = useState<'card' | 'hosted' | null>(null);
   const [hostedFor, setHostedFor] = useState<Exclude<PlanId, 'free'> | null>(null);
-  const [fx, setFx] = useState<{ currency: string; rate: number } | null>(null);
   const [cardFor, setCardFor] = useState<Exclude<PlanId, 'free'> | null>(null);
 
   const loadMe = () =>
@@ -50,7 +49,7 @@ export default function Planes() {
     loadMe();
     fetch('/api/billing/subscription', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setMode(d?.mode ?? (d?.available ? 'card' : null)); if (d?.currency) setFx({ currency: d.currency, rate: d.rate }); })
+      .then((d) => { setMode(d?.mode ?? (d?.available ? 'card' : null)); })
       .catch(() => {});
   }, []);
 
@@ -82,9 +81,7 @@ export default function Planes() {
   }
 
   const priceText = (plan: Exclude<PlanId, 'free'>) =>
-    fx && fx.currency !== 'USD'
-      ? `$${Math.round(pricing(plan, period).price * fx.rate).toLocaleString('es-CO')} ${fx.currency} (${usd(pricing(plan, period).price)})`
-      : usd(pricing(plan, period).price);
+    `${cop(priceCop(plan, period))} COP`;
 
   return (
     <main className="hero" style={{ marginTop: '5vh', maxWidth: 1040 }}>
@@ -131,7 +128,7 @@ export default function Planes() {
         {PLAN_ORDER.map((id) => {
           const plan = PLANS[id];
           const paid = id !== 'free';
-          const p = paid ? pricing(id, period) : null;
+          const p = paid ? pricingCop(id, period) : null;
           const current = !!me && (me.lifetime ? id === 'max' : me.plan === id);
           const popular = id === 'plus';
           return (
@@ -142,7 +139,7 @@ export default function Planes() {
               <div className="plan-price">
                 {p ? (
                   <>
-                    <strong>{usd(p.price)}</strong>
+                    <strong>{cop(p.price)}</strong>
                     <span className="muted"> / {PERIOD_UNIT[period]}</span>
                   </>
                 ) : (
@@ -151,13 +148,13 @@ export default function Planes() {
               </div>
               {p && period !== 'monthly' ? (
                 <p className="small" style={{ margin: '0 0 4px' }}>
-                  <span className="badge">Ahorras {p.pct} % · {usd(p.saved)}</span>
-                  <span className="muted"> en vez de <s>{usd(p.full)}</s></span>
+                  <span className="badge">Ahorras {p.pct} % · {cop(p.saved)}</span>
+                  <span className="muted"> en vez de <s>{cop(p.full)}</s></span>
                 </p>
               ) : (
-                <p className="small muted" style={{ margin: '0 0 4px' }}>{p ? `Mes a mes, ${usd(PRICES[id as Exclude<PlanId, 'free'>].monthly)}` : 'Sin costo'}</p>
+                <p className="small muted" style={{ margin: '0 0 4px' }}>{p ? `Mes a mes, ${cop(priceCop(id as Exclude<PlanId, 'free'>, 'monthly'))}` : 'Sin costo'}</p>
               )}
-              {p && period !== 'monthly' && <p className="small muted" style={{ margin: '0 0 8px' }}>Equivale a {usd(p.perMonth)} al mes</p>}
+              {p && period !== 'monthly' && <p className="small muted" style={{ margin: '0 0 8px' }}>Equivale a {cop(p.perMonth)} al mes</p>}
               <ul className="plan-list">
                 {plan.includes.map((t) => <li key={t}>{t}</li>)}
               </ul>
@@ -184,7 +181,7 @@ export default function Planes() {
       </div>
 
       <p className="muted small" style={{ marginTop: 18 }}>
-        Los precios están en dólares estadounidenses (USD). El ahorro se calcula frente a pagar mes a mes. Puedes cambiar de plan cuando quieras.
+        Los precios están en pesos colombianos (COP). El ahorro se calcula frente a pagar mes a mes. Puedes cambiar de plan cuando quieras.
         Al pagar aceptas los <Link href="/terminos">Términos y condiciones</Link>.
       </p>
     </main>

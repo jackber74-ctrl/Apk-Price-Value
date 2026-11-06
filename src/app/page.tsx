@@ -22,7 +22,7 @@ export default async function Home() {
         <div className="card"><h3>Calculadora simple</h3><p className="muted small">Pones tus costos, eliges el % de ganancia y los gastos fijos que aplican. Listo.</p></div>
         <div className="card"><h3>Cotizador</h3><p className="muted small">Arma cotizaciones con tu logo y los precios de la calculadora, y guárdalas para editarlas.</p></div>
         <div className="card"><h3>Buscador de proveedores</h3><p className="muted small">Busca precios en tiendas y mayoristas y guárdalos como insumos.</p></div>
-        <Link href="/planes" className="card plan-card"><h3>⭐ Planes premium</h3><p className="muted small">Free, Pro, Pro+ y Pro+Plus desde US$1 al mes, con descuento semestral y anual. Mira qué incluye cada uno.</p><span className="small">Ver planes y precios →</span></Link>
+        <Link href="/planes" className="card plan-card"><h3>⭐ Planes premium</h3><p className="muted small">Free, Pro, Pro+ y Pro+Plus desde $3.700 al mes, con descuento semestral y anual. Mira qué incluye cada uno.</p><span className="small">Ver planes y precios →</span></Link>
         <div className="card"><h3>Modo avanzado</h3><p className="muted small">Recetas, mano de obra con prestaciones, equipos, punto de equilibrio y comparador.</p></div>
         <div className="card"><h3>En tu celular y computador</h3><p className="muted small">Instálala en Android, iPhone, Windows o Linux. <Link href="/descargar">Descargar la app</Link></p></div>
       </div>
