@@ -108,6 +108,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'registro' }) {
               value={password} onChange={(e) => setPassword(e.target.value)}
             />
             {mode === 'registro' && <p className="muted small" style={{ marginTop: 4 }}>Mínimo 8 caracteres.</p>}
+            {mode === 'login' && (
+              <p className="small" style={{ marginTop: 4, marginBottom: 0 }}><Link href="/recuperar">¿Olvidaste tu contraseña?</Link></p>
+            )}
           </div>
           {mode === 'registro' && (
             <label className="consent" htmlFor="accept">
