@@ -130,6 +130,7 @@ tr:last-child td { border-bottom: 0; }
 .badge.lock { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .alert { padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); margin-bottom: 12px; }
 .alert.bad { background: var(--bad-soft); color: var(--bad); }
+.alert.ok { background: var(--good-soft, var(--bg)); color: var(--good); }
 .check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .check-row:last-child { border-bottom: 0; }
 .check-row .grow { flex: 1; }

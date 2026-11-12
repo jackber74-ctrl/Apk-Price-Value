@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     [email],
   );
   if (user && !user.password_hash) {
-    return jsonError('Esta cuenta entra con Google, Facebook o TikTok. Usa ese botón para ingresar.', 401);
+    return jsonError('Esta cuenta entra con Google, Facebook o TikTok. Usa ese botón para ingresar, o crea una contraseña en «¿Olvidaste tu contraseña?».', 401);
   }
   if (!user || !(await bcrypt.compare(password, user.password_hash as string))) {
     return jsonError('Correo o contraseña incorrectos.', 401);
