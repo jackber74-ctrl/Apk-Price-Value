@@ -7,6 +7,7 @@ import { DEFAULT_BRAND } from '@/lib/brand';
 import { usePlan } from '@/lib/use-plan';
 import { PLANS } from '@/lib/plans';
 import SubscriptionRow from '@/components/SubscriptionRow';
+import EInvoiceSettings from '@/components/EInvoiceSettings';
 
 type Profile = { name: string; logo: string | null; brand_color: string | null; biz_nit: string; biz_phone: string; biz_email: string; biz_address: string };
 
@@ -121,6 +122,8 @@ export default function Cuenta() {
           <button type="button" onClick={saveProfile}>Guardar</button>
         </section>
       )}
+
+      {plan.loaded && plan.plan !== 'free' && <EInvoiceSettings />}
 
       <section className="card">
         <h2>Descargar mis datos</h2>

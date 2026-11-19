@@ -268,3 +268,45 @@ CREATE TABLE IF NOT EXISTS rapyd_refs (
   rapyd_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------- Factura electrónica (DIAN) desde el cotizador ----------
+-- Datos del comprador que pide la DIAN.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS doc_type TEXT NOT NULL DEFAULT 'CC';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS person_type TEXT NOT NULL DEFAULT 'natural';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS iva_responsable BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS municipality_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS city TEXT NOT NULL DEFAULT '';
+-- Conexión de cada usuario con su proveedor tecnológico. Las claves van cifradas (src/lib/secret-box.ts).
+CREATE TABLE IF NOT EXISTS einvoice_settings (
+  user_id            INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  provider           TEXT NOT NULL DEFAULT 'factus',
+  sandbox            BOOLEAN NOT NULL DEFAULT true,
+  client_id          TEXT NOT NULL DEFAULT '',
+  client_secret      TEXT NOT NULL DEFAULT '',
+  username           TEXT NOT NULL DEFAULT '',
+  password           TEXT NOT NULL DEFAULT '',
+  numbering_range_id TEXT NOT NULL DEFAULT '',
+  iva_responsable    BOOLEAN NOT NULL DEFAULT false,
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS invoices (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  estimate_id INTEGER REFERENCES estimates(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  provider    TEXT NOT NULL DEFAULT 'factus',
+  sandbox     BOOLEAN NOT NULL DEFAULT true,
+  status      TEXT NOT NULL DEFAULT 'pending', -- pending | issued | error
+  number      TEXT NOT NULL DEFAULT '',
+  cufe        TEXT NOT NULL DEFAULT '',
+  qr_url      TEXT NOT NULL DEFAULT '',
+  public_url  TEXT NOT NULL DEFAULT '',
+  total       NUMERIC NOT NULL DEFAULT 0,
+  request     JSONB,
+  response    JSONB,
+  error       TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id);
+-- Una cotización solo se factura una vez en producción (también bloquea el doble clic).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_estimate_real ON invoices(estimate_id) WHERE NOT sandbox AND status IN ('pending', 'issued');
