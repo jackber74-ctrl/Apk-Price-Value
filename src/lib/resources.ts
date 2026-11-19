@@ -101,7 +101,10 @@ export const RESOURCES: Record<string, Resource> = {
   customers: {
     table: 'customers',
     feature: 'save',
-    cols: { name: 'text', doc: 'text', email: 'text', phone: 'text', address: 'text', notes: 'text' },
+    cols: {
+      name: 'text', doc: 'text', email: 'text', phone: 'text', address: 'text', notes: 'text',
+      doc_type: 'text', person_type: 'text', iva_responsable: 'bool', municipality_id: 'text', city: 'text',
+    },
     required: ['name'],
     order: 'name',
   },

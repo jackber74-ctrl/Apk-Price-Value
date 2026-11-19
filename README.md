@@ -22,6 +22,22 @@ contabilidad – Colombia 2026*.
   producto, reparto de gastos fijos (por unidad o por minuto), diagnóstico y comparación con la
   competencia. Todas las tablas se exportan a Excel (CSV).
 
+## Factura electrónica (DIAN)
+
+Desde una cotización guardada, el botón **Facturar** convierte la cotización en factura electrónica de venta legal en Colombia
+a través de **Factus** (proveedor tecnológico autorizado por la DIAN), que firma, genera el CUFE y la envía a la DIAN.
+
+1. Cada usuario se habilita como facturador electrónico en la DIAN y carga su resolución de numeración en su cuenta de Factus.
+2. En **Mi cuenta → Facturación electrónica** pone Client ID, Client Secret, usuario y contraseña de Factus (se guardan
+   cifradas), elige si es responsable de IVA y pulsa «Probar conexión» para escoger la resolución. Empieza en *Pruebas*.
+3. En el cotizador, «Facturar» pide los datos del comprador (tipo y número de documento con DV automático, persona natural o
+   jurídica, correo, dirección y municipio), forma y medio de pago, y emite. Queda el número, el CUFE, el enlace a la DIAN y
+   el PDF. En producción una cotización solo se factura una vez y pasa a estado *Facturada*.
+
+El IVA solo se cobra si el usuario es responsable de IVA; el precio se envía a Factus con IVA incluido y el descuento general
+como % por línea (`src/lib/einvoice.ts`). Antes de pasar a producción conviene emitir una factura de prueba y revisar los
+totales en Factus.
+
 ## Tecnología
 
 Next.js 15 + PostgreSQL (`pg`), contraseñas con bcrypt y sesión firmada en cookie (`jose`).
@@ -38,6 +54,8 @@ Next.js 15 + PostgreSQL (`pg`), contraseñas con bcrypt y sesión firmada en coo
 | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Opcional. Activa «Continuar con Facebook» |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | Opcional. Activa «Continuar con TikTok» |
 | `NEXT_PUBLIC_APK_URL`, `NEXT_PUBLIC_WINDOWS_URL` | Opcional. Enlaces a un .apk o instalador de Windows ya generados (por ejemplo con PWABuilder); si existen, `/descargar` muestra el botón «Descargar el instalador» |
+| `FACTUS_BASE_URL` | Opcional. Cambia la dirección de la API de Factus (solo para pruebas locales) |
+| `EINVOICE_KEY` | Opcional. Llave para cifrar las claves de facturación de cada usuario; si no existe se usa `AUTH_SECRET` |
 | `LEGAL_NAME`, `LEGAL_ID`, `LEGAL_EMAIL`, `LEGAL_ADDRESS`, `LEGAL_CITY`, `LEGAL_PHONE` | Datos del responsable que salen en los Términos y la Política de privacidad |
 
 Las tablas se crean solas en cada `npm run build` (o con `npm run db:migrate`).

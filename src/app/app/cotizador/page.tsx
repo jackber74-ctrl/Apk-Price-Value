@@ -8,8 +8,9 @@ import { api, create, list, remove, update } from '@/lib/client';
 import { money } from '@/lib/format';
 import EstimateDoc, { type DocProfile } from '@/components/EstimateDoc';
 import { STATUSES, estimateTotals, nextNumber, type EstimateItem } from '@/lib/estimate';
+import InvoicePanel, { type FullCustomer, type InvoiceRow } from '@/components/InvoicePanel';
 
-type Customer = { id: number; name: string; doc: string; email: string; phone: string; address: string; notes: string };
+type Customer = FullCustomer;
 type Calc = { id: number; name: string; price: number; data: { kind?: 'Producto' | 'Servicio'; competitor?: string } };
 type Estimate = {
   id: number; customer_id: number | null; number: string; title: string; status: string; issue_date: string;
@@ -36,6 +37,8 @@ function Cotizador() {
   const [msg, setMsg] = useState('');
   const [profile, setProfile] = useState<DocProfile | null>(null);
   const [newCustomer, setNewCustomer] = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [billing, setBilling] = useState(false);
 
   const newDraft = useCallback(
     (all: Estimate[], items: EstimateItem[] = []): Draft => ({
@@ -49,6 +52,7 @@ function Cotizador() {
     Promise.all([list<Estimate>('estimates'), list<Customer>('customers'), list<Calc>('quotes'), api<{ profile: DocProfile }>('/api/account/profile').catch(() => null)])
       .then(([e, c, q, pr]) => {
         setProfile(pr?.profile ?? null);
+        api<{ rows: InvoiceRow[] }>('/api/einvoice').then((d) => setInvoices(d.rows)).catch(() => {});
         setEstimates(e);
         setCustomers(c);
         setCalcs(q);
@@ -83,8 +87,8 @@ function Cotizador() {
     );
   }
 
-  async function save() {
-    if (!draft || !totals) return;
+  async function save(): Promise<boolean> {
+    if (!draft || !totals) return false;
     const body = { ...draft, total: totals.total };
     try {
       if (draft.id) {
@@ -97,8 +101,10 @@ function Cotizador() {
         setDraft(row);
       }
       setMsg('Cotización guardada en tu cuenta.');
+      return true;
     } catch (e) {
       setMsg((e as Error).message);
+      return false;
     }
   }
 
@@ -135,7 +141,7 @@ function Cotizador() {
     return (
       <>
         <div className="page-head no-print">
-          <button type="button" className="ghost" onClick={() => { setDraft(null); router.replace('/app/cotizador'); }}>← Mis cotizaciones</button>
+          <button type="button" className="ghost" onClick={() => { setDraft(null); setBilling(false); router.replace('/app/cotizador'); }}>← Mis cotizaciones</button>
           <h1>{draft.id ? `Cotización ${draft.number}` : 'Nueva cotización'}</h1>
         </div>
         {msg && <div className="alert no-print">{msg}</div>}
@@ -268,10 +274,29 @@ function Cotizador() {
 
         <div className="row no-print">
           <button type="button" onClick={save}>{draft.id ? 'Guardar cambios' : 'Guardar cotización'}</button>
+          <button type="button" className="ghost" onClick={async () => { if (draft.id || (await save())) setBilling(true); }}>Facturar</button>
           <button type="button" className="ghost" onClick={() => window.print()}>Imprimir / PDF</button>
           {draft.id && <button type="button" className="ghost" onClick={() => duplicate(draft as Estimate)}>Duplicar</button>}
           {draft.id && <button type="button" className="danger" onClick={() => del(draft.id!)}>Eliminar</button>}
         </div>
+
+        {billing && draft.id && (
+          <InvoicePanel
+            estimate={draft}
+            customer={customer}
+            invoices={invoices.filter((i) => i.estimate_id === draft.id)}
+            onCustomer={(c) => setCustomers((p) => p.map((x) => (x.id === c.id ? c : x)))}
+            onIssued={(inv) => {
+              setInvoices((p) => [inv, ...p]);
+              if (!inv.sandbox) {
+                patch({ status: 'Facturada' });
+                setEstimates((p) => p.map((e) => (e.id === draft.id ? { ...e, status: 'Facturada' } : e)));
+              }
+            }}
+            saveFirst={save}
+            onClose={() => setBilling(false)}
+          />
+        )}
       </>
     );
   }
@@ -280,7 +305,7 @@ function Cotizador() {
     <>
       <div className="page-head">
         <h1>Cotizador</h1>
-        <p className="muted">Arma cotizaciones para tus clientes con los precios de tu calculadora. Todo queda guardado en tu cuenta para editarlo o reutilizarlo.</p>
+        <p className="muted">Arma cotizaciones para tus clientes con los precios de tu calculadora y, cuando te las aprueben, conviértelas en factura electrónica legal (DIAN) con el botón «Facturar». Todo queda guardado en tu cuenta.</p>
       </div>
       {msg && <div className="alert">{msg}</div>}
       <div className="row" style={{ marginBottom: 12 }}>
@@ -292,12 +317,13 @@ function Cotizador() {
         {estimates.length === 0 && <p className="muted small">Aún no tienes cotizaciones. Crea una nueva o envía un cálculo desde la calculadora.</p>}
         {estimates.map((e) => (
           <div className="check-row" key={e.id}>
-            <button type="button" className="ghost grow" style={{ textAlign: 'left' }} onClick={() => { setDraft(e); setMsg(''); }}>
+            <button type="button" className="ghost grow" style={{ textAlign: 'left' }} onClick={() => { setDraft(e); setMsg(''); setBilling(false); }}>
               <strong>{e.number}</strong> {e.title && `· ${e.title} `}<span className="muted small">· {customerName(e.customer_id)}</span>
             </button>
-            <span className={`badge ${e.status === 'Rechazada' ? 'bad' : e.status === 'Aprobada' ? '' : 'warn'}`}>{e.status}</span>
+            <span className={`badge ${e.status === 'Rechazada' ? 'bad' : e.status === 'Aprobada' || e.status === 'Facturada' ? '' : 'warn'}`}>{e.status}</span>
             <span className="num">{money(Number(e.total))}</span>
-            <button type="button" className="ghost" onClick={() => { setDraft(e); setMsg(''); }}>Editar</button>
+            <button type="button" className="ghost" onClick={() => { setDraft(e); setMsg(''); setBilling(false); }}>Editar</button>
+            <button type="button" className="ghost" onClick={() => { setDraft(e); setMsg(''); setBilling(true); }}>Facturar</button>
             <button type="button" className="danger" aria-label="Eliminar" onClick={() => del(e.id)}>✕</button>
           </div>
         ))}
@@ -314,6 +340,7 @@ function Cotizador() {
         cols={[
           { key: 'name', label: 'Nombre' },
           { key: 'doc', label: 'NIT / CC', width: 120 },
+          { key: 'doc_type', label: 'Tipo doc.', width: 80 },
           { key: 'phone', label: 'Teléfono', width: 120 },
           { key: 'email', label: 'Correo' },
           { key: 'address', label: 'Dirección' },

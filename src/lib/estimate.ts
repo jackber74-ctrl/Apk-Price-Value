@@ -32,4 +32,4 @@ export function nextNumber(existing: string[]) {
   return `COT-${String(max + 1).padStart(4, '0')}`;
 }
 
-export const STATUSES = ['Borrador', 'Enviada', 'Aprobada', 'Rechazada'] as const;
+export const STATUSES = ['Borrador', 'Enviada', 'Aprobada', 'Rechazada', 'Facturada'] as const;
