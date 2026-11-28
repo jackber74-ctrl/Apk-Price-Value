@@ -33,7 +33,8 @@ Next.js 15 + PostgreSQL (`pg`), contraseñas con bcrypt y sesión firmada en coo
 | `DATABASE_URL` | Conexión a Postgres (Neon, Supabase, Vercel Postgres…) |
 | `AUTH_SECRET` | Texto secreto de 32+ caracteres para firmar sesiones |
 | `SERPER_API_KEY` | Opcional. Clave de [serper.dev](https://serper.dev) para ver resultados dentro del buscador |
-| `APP_URL` | Dirección pública sin barra final, por ejemplo `https://apk-price-value.vercel.app`. Se usa para el inicio de sesión social |
+| `APP_URL` | Dirección pública sin barra final, por ejemplo `https://apk-price-value.vercel.app`. Se usa para el inicio de sesión social y los enlaces de los correos |
+| `RESEND_API_KEY`, `MAIL_FROM` | Activan «¿Olvidaste tu contraseña?». Crea la clave en [resend.com](https://resend.com) → API Keys. `MAIL_FROM` es el remitente, de un dominio verificado en Resend (sin dominio propio, Resend solo deja enviar a tu propio correo desde `onboarding@resend.dev`). En desarrollo, sin clave, el enlace sale en la consola |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Opcional. Activa «Continuar con Google» |
 | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | Opcional. Activa «Continuar con Facebook» |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | Opcional. Activa «Continuar con TikTok» |
